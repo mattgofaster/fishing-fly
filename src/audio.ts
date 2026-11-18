@@ -53,6 +53,13 @@ class Sfx {
   private musicGain: GainNode | null = null;
   private musicMode: MusicMode = 'chill';
   private nextStep = 0;
+  /**
+   * Music waits for the intro jingle. Measured in wall-clock time, not the
+   * audio clock, which iOS can leave stalled or jumping around while it
+   * unlocks. `holdMs` is armed by intro() and starts counting once audio runs.
+   */
+  private holdMs = 0;
+  private holdUntil = 0;
   private step = 0;
   /** The whistled phrase for the current four bars: [step, note index] pairs. */
   private phrase: [number, number][] = [];
@@ -87,7 +94,16 @@ class Sfx {
       this.startAmbient();
       this.startMusic();
     }
-    if (this.ctx.state !== 'running') void this.ctx.resume().catch(() => {});
+    if (this.ctx.state !== 'running') {
+      void this.ctx.resume().catch(() => {});
+      // iOS only truly unlocks audio once something actually plays inside a
+      // touch, so play one silent sample every time we're asked.
+      const c = this.ctx;
+      const src = c.createBufferSource();
+      src.buffer = c.createBuffer(1, 1, 22050);
+      src.connect(c.destination);
+      src.start(0);
+    }
   }
 
   setMuted(m: boolean) {
@@ -225,9 +241,14 @@ class Sfx {
   private scheduleMusic() {
     const c = this.ctx;
     if (!c || c.state !== 'running' || !this.musicOn || this.muted) return;
+    if (this.holdMs > 0) {
+      this.holdUntil = performance.now() + this.holdMs;
+      this.holdMs = 0;
+    }
+    if (performance.now() < this.holdUntil) return;
     const now = c.currentTime;
-    // Fell behind (app was paused): pick up from now instead of cramming notes in.
-    if (this.nextStep < now - 0.1) this.nextStep = now + 0.05;
+    // Fell behind (app was paused), or the clock did something odd: pick up from now.
+    if (this.nextStep < now - 0.1 || this.nextStep > now + 1) this.nextStep = now + 0.05;
     const stepDur = this.musicMode === 'tourney' ? 60 / 132 / 2 : 60 / 86 / 2;
     while (this.nextStep < now + 0.25) {
       this.playStep(this.step, this.nextStep, stepDur);
@@ -314,7 +335,8 @@ class Sfx {
     this.musicMode = 'chill';
     this.step = 0;
     this.phrase = [];
-    this.nextStep = c.currentTime + hit + 0.75;
+    this.holdMs = (hit + 0.75) * 1000;
+    this.nextStep = 0;
   }
 
   /** Quest complete: a little brass-ish ta-da. */
