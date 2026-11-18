@@ -139,7 +139,13 @@ export interface Result {
 
 const REEL_SPEED = 0.13;
 const SLACK_LEVEL = 0.15;
-const SLACK_LIMIT = 1.6;
+const SLACK_LIMIT = 2.4;
+/**
+ * Seconds the reel keeps winding after you lift your finger, so rapid tapping
+ * works nearly as well as holding. Never applies while the fish is running:
+ * letting go then always stops the reel at once.
+ */
+const REEL_GRACE = 0.35;
 export const RED_LEVEL = 0.78;
 export const TREES_AT = 1.2;
 
@@ -192,6 +198,12 @@ export class Game {
   beepT = 0;
   nibbleIdx = 0;
   winStreak = 0;
+  /** Is the reel actually winding this frame (held, or just tapped)? */
+  reeling = false;
+  private downAt = 0;
+  private lastUp = -10;
+  private shortTaps = 0;
+  private tapTipGiven = false;
   /** The fish already got one free bite and came back for another. */
   rebite = false;
   /** Bites missed in a row, across casts. Two or more and the bites slow down. */
@@ -444,6 +456,7 @@ export class Game {
         break;
       case 'fight':
         this.held = true;
+        this.downAt = this.time;
         break;
       case 'result':
         if (this.phaseT > 0.7) this.toIdle();
@@ -462,6 +475,14 @@ export class Game {
   }
 
   onUp(cancelled = false) {
+    if (this.phase === 'fight' && this.held) {
+      this.lastUp = this.time;
+      // Lots of quick taps: they think it's a tapping game. Tell them once.
+      if (this.time - this.downAt < 0.25 && ++this.shortTaps >= 3 && !this.tapTipGiven) {
+        this.tapTipGiven = true;
+        this.say(BUDDY.holdTip, 3.5);
+      }
+    }
     this.held = false;
     if (this.phase === 'idle' && this.drag) {
       const info = this.dragInfo();
@@ -890,6 +911,12 @@ export class Game {
   private startFight() {
     const c = this.current!;
     this.missStreak = 0;
+    this.downAt = this.time;
+    this.lastUp = -10;
+    this.shortTaps = 0;
+    this.tapTipGiven = false;
+    // New anglers get told how this works, every fight until it sticks.
+    if (this.save.caught < 3) this.say(BUDDY.holdIntro, 3.5);
     this.fish = {
       lx: this.bobber.lx,
       d: this.bobber.d,
@@ -1117,7 +1144,8 @@ export class Game {
     }
 
     const running = f.state === 'run';
-    if (this.held) {
+    this.reeling = this.held || (!running && this.time - this.lastUp < REEL_GRACE);
+    if (this.reeling) {
       if (running) {
         this.tension += c.power * LINES[this.save.line].tough * dt;
       } else {
@@ -1140,7 +1168,7 @@ export class Game {
         this.splashAcc -= 1;
         this.splash(p.x, p.y, 1, p.s);
       }
-      if (this.held) this.shake = Math.max(this.shake, 0.25);
+      if (this.reeling) this.shake = Math.max(this.shake, 0.25);
     }
 
     // Slack only matters for things that can swim away.
@@ -1151,8 +1179,8 @@ export class Game {
 
     // Reel clicks: steady when winding, a fast whine when the fish strips line.
     this.tickT -= dt;
-    if (this.tickT <= 0 && (this.held || running)) {
-      const stripping = running && !this.held;
+    if (this.tickT <= 0 && (this.reeling || running)) {
+      const stripping = running && !this.reeling;
       sfx.tick(stripping);
       this.tickT = stripping ? 0.04 : running ? 0.17 : 0.075;
     }

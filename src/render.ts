@@ -728,7 +728,7 @@ function drawRodAndLine(ctx: Ctx, g: Game) {
   ctx.beginPath();
   ctx.arc(h.x + 5 * u, h.y - 6 * u, 5 * u, 0, Math.PI * 2);
   ctx.fill();
-  if (g.phase === 'fight' && g.held) {
+  if (g.phase === 'fight' && g.reeling) {
     const a = g.time * 14;
     ctx.strokeStyle = '#30363d';
     ctx.lineWidth = 2 * u;
@@ -1005,7 +1005,7 @@ function drawTension(ctx: Ctx, g: Game) {
 
   if (Math.sin(g.time * 16) > -0.3) {
     if (red) label(ctx, 'LET GO!', W / 2, yFar + 26 * u, 22 * u, '#ff5a4a');
-    else if (slack) label(ctx, 'REEL!', W / 2, yFar + 26 * u, 22 * u, '#7cc8ff');
+    else if (slack) label(ctx, 'HOLD TO REEL!', W / 2, yFar + 26 * u, 22 * u, '#7cc8ff');
   }
 }
 
@@ -1013,6 +1013,8 @@ function drawHint(ctx: Ctx, g: Game) {
   const { W, u, feetY } = g.L;
   let text = '';
   let hot = false;
+  let fill = '#ffd84a';
+  let ink = '#5a1a0c';
   switch (g.phase) {
     case 'idle':
       text = g.drag ? 'Release to cast' : 'Swipe up to cast';
@@ -1024,9 +1026,26 @@ function drawHint(ctx: Ctx, g: Game) {
       text = 'TAP ANYWHERE!';
       hot = true;
       break;
-    case 'fight':
-      text = (g.current?.runChance ?? 0) > 0 ? 'Hold to reel, let go when it runs' : 'Hold to reel';
+    case 'fight': {
+      // Big and live: tells you what to do with your finger right now.
+      const running = g.fish.state === 'run' && !g.current?.junk;
+      const snagged = g.fish.state === 'run' && g.current?.junk;
+      if (running || snagged) {
+        text = running ? 'IT RUNS! LET GO!' : 'SNAGGED! LET GO!';
+        fill = '#ff5a4a';
+        ink = '#fff';
+      } else if (g.reeling) {
+        text = 'REELING... KEEP HOLDING';
+        fill = '#5fd36a';
+        ink = '#0f3a1a';
+      } else {
+        text = 'HOLD TO REEL';
+        fill = '#ffd84a';
+        ink = '#5a1a0c';
+      }
+      hot = true;
       break;
+    }
     default:
       return;
   }
@@ -1035,10 +1054,10 @@ function drawHint(ctx: Ctx, g: Game) {
   const w = ctx.measureText(text).width + 28 * u;
   const h = size + 16 * u;
   const y = feetY + 30 * u;
-  ctx.fillStyle = hot ? '#ffd84a' : 'rgba(10,30,45,0.6)';
+  ctx.fillStyle = hot ? fill : 'rgba(10,30,45,0.6)';
   roundRect(ctx, W / 2 - w / 2, y - h / 2, w, h, h / 2);
   ctx.fill();
-  ctx.fillStyle = hot ? '#5a1a0c' : '#fff';
+  ctx.fillStyle = hot ? ink : '#fff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, W / 2, y + 1 * u);

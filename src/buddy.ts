@@ -43,6 +43,14 @@ export const BUDDY = {
     "Too slow! It's circling. Get that thumb ready.",
     "It's coming back for seconds. Tap when it dives!",
   ],
+  holdIntro: [
+    "HOLD your finger down to reel! When it runs, LET GO!",
+    'Hold to reel it in. Let go when it splashes off. Hold, let go. Easy.',
+  ],
+  holdTip: [
+    "Don't tap, HOLD! Keep your finger down to reel!",
+    'Less tapping, more holding! Finger down, keep it down!',
+  ],
   missTip: [
     "Tip: tap ANYWHERE the second the bobber dives. Don't aim, just tap.",
     "Rest your thumb on the screen and tap the instant it goes under.",
@@ -63,7 +71,7 @@ export const BUDDY = {
   ],
   spooled: ['It took all your line. And your dignity.', 'There it goes. Wave goodbye.'],
   tense: ['Ease up! Ease up!', 'Let go, let GO!', 'Red is bad! Red is BAD!'],
-  loose: ['Reel! Reel, you beautiful disaster!', 'Slack line! Do something!'],
+  loose: ['Slack line! HOLD to reel, you beautiful disaster!', 'Finger down! Hold it! The line is going loose!'],
   caughtSmall: [
     'Adorable. Should we get it a tiny trophy?',
     'That is bait with ambitions.',
