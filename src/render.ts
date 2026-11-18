@@ -1188,12 +1188,43 @@ function drawTitle(ctx: Ctx, g: Game) {
   const pulse = 1 + Math.sin(g.time * 4) * 0.05;
   const by = feetY + 40 * u;
   setFont(ctx, 20 * u * pulse, '900');
-  const tw = ctx.measureText('TAP TO START').width + 40 * u;
+  const textW = ctx.measureText('TAP TO START').width;
+  const iconW = 26 * u * pulse;
+  const tw = textW + iconW + 44 * u;
   ctx.fillStyle = '#ffd84a';
   roundRect(ctx, W / 2 - tw / 2, by - 24 * u, tw, 48 * u, 24 * u);
   ctx.fill();
+  // Speaker with sound waves: the tap is what turns the sound on.
+  const ix = W / 2 - (textW + iconW) / 2 - 4 * u;
+  ctx.save();
+  ctx.translate(ix + 8 * u, by);
+  ctx.scale(u * pulse, u * pulse);
   ctx.fillStyle = '#5a1a0c';
-  ctx.fillText('TAP TO START', W / 2, by + 1 * u);
+  ctx.strokeStyle = '#5a1a0c';
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-8, -3.5);
+  ctx.lineTo(-3.5, -3.5);
+  ctx.lineTo(2, -9);
+  ctx.lineTo(2, 9);
+  ctx.lineTo(-3.5, 3.5);
+  ctx.lineTo(-8, 3.5);
+  ctx.closePath();
+  ctx.fill();
+  const wave = (g.time * 2) % 1;
+  for (const [r, k] of [[6, 0], [11, 0.5]] as const) {
+    ctx.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin((wave + k) * Math.PI));
+    ctx.beginPath();
+    ctx.arc(3, 0, r, -0.85, 0.85);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  ctx.fillStyle = '#5a1a0c';
+  ctx.textAlign = 'left';
+  ctx.fillText('TAP TO START', ix + iconW + 10 * u, by + 1 * u);
+  ctx.textAlign = 'center';
 
   if (INSTALL_TIP) {
     setFont(ctx, 12.5 * u, '700');

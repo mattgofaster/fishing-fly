@@ -239,7 +239,7 @@ export class Game {
 
   private leaveTitle() {
     this.title = false;
-    sfx.splash(0.5);
+    sfx.intro();
     this.say(this.onBoat() ? BUDDY.arrive[this.save.spot] : BUDDY.hello, 6);
     this.questAt = this.time + 8;
   }

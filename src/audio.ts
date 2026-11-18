@@ -295,6 +295,28 @@ class Sfx {
 
   // ---------- Game sounds ----------
 
+  /**
+   * The title-screen tap: a banjo-ish run up to a big G chord, then the
+   * background music comes in on the next bar.
+   */
+  intro() {
+    const c = this.ctx;
+    if (!c) return;
+    const run = [196, 247, 294, 392, 494, 587];
+    run.forEach((f, i) => this.tone(f, 0.22, { type: 'triangle', vol: 0.12, delay: i * 0.06, attack: 0.003 }));
+    const hit = 0.42;
+    for (const f of [392, 494, 587, 784]) {
+      this.tone(f, 0.9, { type: 'triangle', vol: 0.07, delay: hit, attack: 0.005 });
+    }
+    this.tone(98, 0.9, { type: 'triangle', vol: 0.22, delay: hit, attack: 0.01 });
+    this.tone(1568, 0.5, { type: 'sine', vol: 0.03, delay: hit + 0.05, to: 1760 });
+    // Hold the music until the chord rings out, then start from the top.
+    this.musicMode = 'chill';
+    this.step = 0;
+    this.phrase = [];
+    this.nextStep = c.currentTime + hit + 0.75;
+  }
+
   /** Quest complete: a little brass-ish ta-da. */
   questDone() {
     const notes = [392, 523, 659, 784];
