@@ -38,6 +38,15 @@ export const BUDDY = {
     'Patience. Look it up.',
     'Too soon. Way too soon.',
   ],
+  rebite: [
+    "Missed it! Don't worry, it's coming back around. Greedy little thing.",
+    "Too slow! It's circling. Get that thumb ready.",
+    "It's coming back for seconds. Tap when it dives!",
+  ],
+  missTip: [
+    "Tip: tap ANYWHERE the second the bobber dives. Don't aim, just tap.",
+    "Rest your thumb on the screen and tap the instant it goes under.",
+  ],
   missed: [
     'It ate your bait and left a bad review.',
     'Free lunch program is going great.',

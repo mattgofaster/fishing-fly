@@ -192,6 +192,10 @@ export class Game {
   beepT = 0;
   nibbleIdx = 0;
   winStreak = 0;
+  /** The fish already got one free bite and came back for another. */
+  rebite = false;
+  /** Bites missed in a row, across casts. Two or more and the bites slow down. */
+  missStreak = 0;
 
   // Menus. `hits` is rebuilt by the renderer every frame.
   screen: Screen = 'none';
@@ -430,6 +434,8 @@ export class Game {
         this.drag = { x0: x, y0: y, x, y };
         break;
       case 'wait':
+        // While a fish is circling back for its second bite, stray taps don't count.
+        if (this.rebite) break;
         if (this.lurk()) this.fail('early');
         else this.reelIn();
         break;
@@ -838,8 +844,41 @@ export class Game {
       };
     }
     this.nibbleIdx = 0;
+    this.rebite = false;
     this.waitChatAt = this.biteAt > 4 && Math.random() < 0.5 ? 1.4 : Infinity;
     this.setPhase('wait');
+  }
+
+  /**
+   * Seconds you get to tap once it bites. Built for thumbs, not mice: a solid
+   * floor for everything, longer on the second chance, longer again if you
+   * have been missing a lot.
+   */
+  biteWindow() {
+    const base = 0.9 + this.current!.biteWindow * 0.8;
+    return base * (this.rebite ? 1.25 : 1) * (this.missStreak >= 2 ? 1.3 : 1);
+  }
+
+  /** Missed the bite. The first time, the fish circles back for another go. */
+  private missBite() {
+    if (this.rebite) {
+      this.missStreak++;
+      this.fail('missed');
+      return;
+    }
+    this.rebite = true;
+    this.missStreak++;
+    this.ripples.push({ ...this.bobber, t: 0 });
+    sfx.splash(0.3);
+    this.say(this.missStreak >= 2 ? BUDDY.missTip : BUDDY.rebite, 3);
+    // Circle the bobber (lurk at full approach), then bite again.
+    this.setPhase('wait');
+    this.biteAt = rand(1.4, 2.4);
+    this.approachAt = -2;
+    this.arriveAt = -1;
+    this.nibbles = [];
+    this.nibbleIdx = 0;
+    this.waitChatAt = Infinity;
   }
 
   private reelIn() {
@@ -850,6 +889,7 @@ export class Game {
 
   private startFight() {
     const c = this.current!;
+    this.missStreak = 0;
     this.fish = {
       lx: this.bobber.lx,
       d: this.bobber.d,
@@ -1037,7 +1077,7 @@ export class Game {
         }
         break;
       case 'bite':
-        if (this.phaseT > this.current!.biteWindow) this.fail('missed');
+        if (this.phaseT > this.biteWindow()) this.missBite();
         break;
       case 'fight':
         this.updateFight(dt);

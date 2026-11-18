@@ -417,6 +417,20 @@ function drawBobber(ctx: Ctx, g: Game) {
   ctx.stroke();
 
   if (g.phase === 'bite') {
+    // Countdown ring: how long you have left to tap.
+    const left = clamp(1 - g.phaseT / g.biteWindow(), 0, 1);
+    const rr = 26 * u;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 5 * u;
+    ctx.strokeStyle = 'rgba(10,30,45,0.35)';
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, rr, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = left > 0.35 ? '#ffd84a' : '#ff5a4a';
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, rr, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
+    ctx.stroke();
+
     const pulse = 1 + Math.sin(g.time * 22) * 0.12;
     setFont(ctx, 46 * u * pulse, '900');
     ctx.textAlign = 'center';
@@ -1004,10 +1018,10 @@ function drawHint(ctx: Ctx, g: Game) {
       text = g.drag ? 'Release to cast' : 'Swipe up to cast';
       break;
     case 'wait':
-      text = g.lurk() ? 'Wait for it...' : 'Tap when the bobber dives';
+      text = g.rebite ? "It's coming back... get ready!" : g.lurk() ? 'Wait for it...' : 'Tap when the bobber dives';
       break;
     case 'bite':
-      text = 'TAP NOW!';
+      text = 'TAP ANYWHERE!';
       hot = true;
       break;
     case 'fight':
