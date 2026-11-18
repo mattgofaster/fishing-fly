@@ -68,7 +68,7 @@ function button(
 
 export function drawNav(ctx: Ctx, g: Game) {
   const { W, u, feetY } = g.L;
-  if (g.tourney) return;
+  if (g.tourney || g.training) return;
   const active = g.phase === 'idle' && g.screen === 'none' && !g.drag && !g.travel;
   const h = 34 * u;
   const y = feetY + 66 * u - h / 2;
@@ -139,6 +139,10 @@ export function drawScreens(ctx: Ctx, g: Game) {
     drawQuestCard(ctx, g);
     return;
   }
+  if (g.screen === 'trainDone') {
+    drawTrainDone(ctx, g);
+    return;
+  }
   const { W, H, u, safeTop, safeBottom } = g.L;
   const a = easeOut(clamp(g.screenT / 0.25, 0, 1));
 
@@ -198,6 +202,79 @@ export function drawScreens(ctx: Ctx, g: Game) {
 }
 
 // ---------- Quest card ----------
+
+/** Graduation card at the end of the practice lesson. */
+function drawTrainDone(ctx: Ctx, g: Game) {
+  const { W, H, u } = g.L;
+  const a = easeOut(clamp(g.screenT / 0.2, 0, 1));
+  ctx.fillStyle = `rgba(8,20,32,${0.6 * a})`;
+  ctx.fillRect(0, 0, W, H);
+  hit(g, 0, 0, W, H, () => g.endTraining());
+
+  const w = Math.min(W - 36 * u, 330 * u);
+  const h = 420 * u;
+  const x0 = W / 2 - w / 2;
+  const y0 = H / 2 - h / 2 + (1 - a) * 60 * u;
+  const cx = W / 2;
+  ctx.fillStyle = PAPER;
+  roundRect(ctx, x0, y0, w, h, 22 * u);
+  ctx.fill();
+  hit(g, x0, y0, w, h, () => {});
+
+  ctx.fillStyle = '#5fd36a';
+  roundRect(ctx, cx - 80 * u, y0 + 18 * u, 160 * u, 28 * u, 14 * u);
+  ctx.fill();
+  setFont(ctx, 13 * u, '900');
+  ctx.fillStyle = '#0f3a1a';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('LESSON COMPLETE', cx, y0 + 32.5 * u);
+
+  setFont(ctx, 24 * u, '900');
+  ctx.fillStyle = INK;
+  ctx.fillText("You're ready!", cx, y0 + 74 * u);
+
+  const tips: [string, string][] = [
+    ['Swipe up', 'to cast. Longer = farther.'],
+    ['Tap', 'when the bobber goes under.'],
+    ['Hold', 'to reel. Let go when it runs.'],
+    ['Shop', 'Better rods, reels and lures.'],
+    ['Quests', "Earl's jobs pay extra coins."],
+    ['Map', 'Buy the boat, fish new spots.'],
+    ['Trophy', '3-minute tournaments.'],
+  ];
+  const lx = x0 + 22 * u;
+  let ty = y0 + 110 * u;
+  for (const [head, rest] of tips) {
+    ctx.textAlign = 'left';
+    setFont(ctx, 14 * u, '900');
+    ctx.fillStyle = BLUE;
+    ctx.fillText(head, lx, ty);
+    setFont(ctx, 12.5 * u, '700');
+    ctx.fillStyle = INK;
+    wrapLines(ctx, rest, w - 44 * u - 78 * u).forEach((line, i) => {
+      ctx.fillText(line, lx + 78 * u, ty + i * 16 * u);
+    });
+    ty += 33 * u;
+  }
+
+  const bw = 180 * u;
+  button(ctx, g, cx - bw / 2, y0 + h - 64 * u, bw, 44 * u, "LET'S FISH!", 'buy', () => g.endTraining());
+}
+
+function wrapLines(ctx: Ctx, text: string, maxW: number) {
+  const out: string[] = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    const next = line ? `${line} ${word}` : word;
+    if (ctx.measureText(next).width > maxW && line) {
+      out.push(line);
+      line = word;
+    } else line = next;
+  }
+  if (line) out.push(line);
+  return out;
+}
 
 function drawQuestCard(ctx: Ctx, g: Game) {
   const s = g.save.quest;

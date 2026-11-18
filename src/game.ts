@@ -87,7 +87,15 @@ export interface Hit {
   fn: () => void;
 }
 
-export type Screen = 'none' | 'shop' | 'journal' | 'map' | 'quest' | 'tourney' | 'tourneyEnd';
+export type Screen = 'none' | 'shop' | 'journal' | 'map' | 'quest' | 'tourney' | 'tourneyEnd' | 'trainDone';
+
+/** Practice run: one guided catch. Nothing can go wrong and nothing counts. */
+export interface Training {
+  /** Last fish state Earl commented on, so he speaks once per change. */
+  said: string;
+  /** Has the practice fish made at least one run yet? */
+  ran: boolean;
+}
 
 export interface Tourney {
   /** Seconds since GO. Negative during the countdown. */
@@ -248,16 +256,71 @@ export class Game {
 
   /** Title screen up: the first tap starts the game (and unlocks sound on iOS). */
   title = true;
+  training: Training | null = null;
 
   constructor() {
     this.spawnShadows();
   }
 
-  private leaveTitle() {
+  leaveTitle(train = false) {
     this.title = false;
     sfx.intro();
-    this.say(this.onBoat() ? BUDDY.arrive[this.save.spot] : BUDDY.hello, 6);
     this.questAt = this.time + 8;
+    if (train) {
+      this.startTraining();
+      return;
+    }
+    const lines = this.onBoat()
+      ? BUDDY.arrive[this.save.spot]
+      : this.save.caught === 0 ? BUDDY.helloNew : BUDDY.hello;
+    this.say(lines, 7);
+  }
+
+  // ---------- Training ----------
+
+  startTraining() {
+    if (this.tourney) return;
+    this.closeScreen();
+    this.toIdle();
+    this.training = { said: '', ran: false };
+    this.say([`${BUDDY.train.start[0]} ${BUDDY.train.cast[0]}`], 6);
+  }
+
+  /** Bail out of practice mid-lesson. */
+  quitTraining() {
+    this.toIdle();
+    this.endTraining();
+    this.say(['Class dismissed. You can always hit the ? again.'], 4);
+  }
+
+  endTraining() {
+    this.training = null;
+    this.closeScreen();
+    this.questAt = this.time + 6;
+  }
+
+  /** The step the lesson is on, 1 to 4, from what's happening right now. */
+  trainStep() {
+    switch (this.phase) {
+      case 'wait': return 2;
+      case 'bite': return 3;
+      case 'fight': case 'result': return 4;
+      default: return 1;
+    }
+  }
+
+  /** Earl talks the trainee through each change in the fight. */
+  private coachFight() {
+    const tr = this.training!;
+    const state = this.fish.state === 'run' ? 'run' : 'tire';
+    if (state === tr.said) return;
+    if (state === 'run') {
+      tr.ran = true;
+      this.say(BUDDY.train.run, 3);
+    } else if (tr.said === 'run') {
+      this.say(BUDDY.train.reHold, 3);
+    }
+    tr.said = state;
   }
 
   private spawnShadows() {
@@ -378,6 +441,12 @@ export class Game {
     return { x: m.x, y: m.y + m.r * 2 + 8 * this.L.u, r: m.r };
   }
 
+  /** The ? button: starts the practice lesson. */
+  helpBtn() {
+    const m = this.trophyBtn();
+    return { x: m.x, y: m.y + m.r * 2 + 8 * this.L.u, r: m.r };
+  }
+
   /** How far out a swipe of this strength lands with the current rod. */
   castD(raw: number) {
     return clamp(raw, 0.05, 1) * RODS[this.save.rod].reach;
@@ -429,7 +498,15 @@ export class Game {
 
   onDown(x: number, y: number) {
     if (this.title) {
-      if (this.time > 0.4) this.leaveTitle();
+      if (this.time <= 0.4) return;
+      // The HOW TO PLAY button; anywhere else just starts.
+      for (const h of this.hits) {
+        if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) {
+          h.fn();
+          return;
+        }
+      }
+      this.leaveTitle();
       return;
     }
     if (this.travel || (this.tourney && this.tourney.t < 0)) return;
@@ -448,6 +525,11 @@ export class Game {
       case 'wait':
         // While a fish is circling back for its second bite, stray taps don't count.
         if (this.rebite) break;
+        if (this.training) {
+          // Practice: an early tap gets a pointer, not a punishment.
+          if (this.lurk()) this.say(BUDDY.train.early, 3);
+          break;
+        }
         if (this.lurk()) this.fail('early');
         else this.reelIn();
         break;
@@ -512,6 +594,7 @@ export class Game {
       quest: this.save.quest ? [this.save.quest.q.ask] : BUDDY.idle,
       tourney: BUDDY.tourneyOpen,
       tourneyEnd: BUDDY.idle,
+      trainDone: BUDDY.train.done,
       none: BUDDY.idle,
     }[screen];
     this.say(lines, screen === 'quest' ? 6 : 4);
@@ -842,10 +925,22 @@ export class Game {
 
     const q = this.save.quest?.q;
     const favor = q && (q.kind === 'catch' || q.kind === 'heavy') ? q.target : undefined;
-    const c = pickCatch(d, this.save.lure, this.save.spot, favor);
+    // Practice always hooks a perch: it nibbles, bites and makes a run or two.
+    const c = this.training
+      ? CATALOG.find((k) => k.id === 'perch')!
+      : pickCatch(d, this.save.lure, this.save.spot, favor);
     this.current = c;
     this.weight = rollWeight(c, this.save.lure);
-    if (c.junk) {
+    if (this.training) {
+      this.say(BUDDY.train.wait, 4);
+      const lead = 0.5 + 0.75;
+      this.biteAt = 1.3 + 1.3 + lead + 0.6;
+      this.arriveAt = this.biteAt - lead;
+      this.approachAt = this.arriveAt - 1.3;
+      this.nibbles = [this.arriveAt + 0.3];
+      const side = pick([-1, 1]);
+      this.lurkFrom = { lx: clamp(this.bobber.lx + side * 0.9, -1.25, 1.25), d: clamp(this.bobber.d + 0.1, 0.05, 1) };
+    } else if (c.junk) {
       this.biteAt = rand(2.5, 5);
       this.nibbles = [];
       this.approachAt = Infinity;
@@ -866,7 +961,7 @@ export class Game {
     }
     this.nibbleIdx = 0;
     this.rebite = false;
-    this.waitChatAt = this.biteAt > 4 && Math.random() < 0.5 ? 1.4 : Infinity;
+    this.waitChatAt = !this.training && this.biteAt > 4 && Math.random() < 0.5 ? 1.4 : Infinity;
     this.setPhase('wait');
   }
 
@@ -916,7 +1011,8 @@ export class Game {
     this.shortTaps = 0;
     this.tapTipGiven = false;
     // New anglers get told how this works, every fight until it sticks.
-    if (this.save.caught < 3) this.say(BUDDY.holdIntro, 3.5);
+    if (this.training) this.say(BUDDY.train.fight, 4);
+    else if (this.save.caught < 3) this.say(BUDDY.holdIntro, 3.5);
     this.fish = {
       lx: this.bobber.lx,
       d: this.bobber.d,
@@ -942,6 +1038,15 @@ export class Game {
 
   private win() {
     const c = this.current!;
+    if (this.training) {
+      // Practice catch: no coins, no records, no quest progress. Just the graduation card.
+      sfx.win(true);
+      this.toIdle();
+      this.screen = 'trainDone';
+      this.screenT = 0;
+      this.say(BUDDY.train.done, 6);
+      return;
+    }
     const coins = coinsFor(c, this.weight);
     const best = this.save.records[c.id] ?? 0;
     const first = best === 0;
@@ -996,9 +1101,12 @@ export class Game {
       spooled: ['SPOOLED!', 'It ran off with all your line.'],
     } as const;
     [this.failTitle, this.failSub] = titles[kind];
-    this.winStreak = 0;
-    this.failStreak++;
-    this.say(this.failStreak % 3 === 0 ? BUDDY.failStreak : BUDDY[kind], 4.5);
+    if (!this.training) {
+      this.winStreak = 0;
+      this.failStreak++;
+    }
+    if (this.training) this.say(kind === 'trees' ? BUDDY.train.trees : BUDDY.train.cast, 4.5);
+    else this.say(this.failStreak % 3 === 0 ? BUDDY.failStreak : BUDDY[kind], 4.5);
 
     if (c && kind !== 'trees') {
       const at = this.phase === 'fight' ? this.fish : this.lurk() ?? this.bobber;
@@ -1018,7 +1126,7 @@ export class Game {
     sfx.fail(0.35);
     this.held = false;
     this.setPhase('fail');
-    this.questEvent({ type: 'fail' });
+    if (!this.training) this.questEvent({ type: 'fail' });
   }
 
   // ---------- Effects ----------
@@ -1071,7 +1179,8 @@ export class Game {
     if (this.travel) this.updateTravel(dt);
     if (this.tourney) this.updateTourney(dt);
 
-    const calm = !this.title && this.screen === 'none' && !this.travel && !this.tourney && !this.drag;
+    const calm =
+      !this.title && this.screen === 'none' && !this.travel && !this.tourney && !this.drag && !this.training;
     switch (this.phase) {
       case 'idle':
         if (calm && !this.save.quest && this.time >= this.questAt) {
@@ -1101,10 +1210,12 @@ export class Game {
           this.shake = 0.2;
           sfx.bite();
           this.setPhase('bite');
+          if (this.training) this.say(BUDDY.train.bite, 30);
         }
         break;
       case 'bite':
-        if (this.phaseT > this.biteWindow()) this.missBite();
+        // No clock in practice: the fish waits for you.
+        if (!this.training && this.phaseT > this.biteWindow()) this.missBite();
         break;
       case 'fight':
         this.updateFight(dt);
@@ -1199,6 +1310,21 @@ export class Game {
         this.say(BUDDY.loose, 1.8);
         this.warnCooldown = 5;
       }
+    }
+
+    if (this.training) {
+      // Practice fish can't snap, shake off or swim away, and it won't come
+      // in until it has made at least one run for you to let go on.
+      this.coachFight();
+      this.tension = Math.min(this.tension, 0.96);
+      this.slackT = 0;
+      f.d = Math.min(f.d, 1);
+      if (!this.training.ran) {
+        f.d = Math.max(f.d, 0.3);
+        if (f.state === 'tire' && this.phaseT > 2) f.stateT = Math.min(f.stateT, 0.1);
+      }
+      if (f.d <= 0.03) this.win();
+      return;
     }
 
     if (this.tension >= 1) this.fail('snap');

@@ -22,10 +22,128 @@ const ordinal = (n: number) => ['1st', '2nd', '3rd', '4th'][n - 1] ?? `${n}th`;
 
 /** Everything layered over the scene that is not a full-screen panel. */
 export function drawHud(ctx: Ctx, g: Game) {
+  if (g.training) {
+    drawTrainBanner(ctx, g);
+    drawSwipeHint(ctx, g);
+    return;
+  }
   drawTrophy(ctx, g);
+  drawHelp(ctx, g);
   if (g.tourney) drawClock(ctx, g);
   else drawQuestBanner(ctx, g);
   drawToast(ctx, g);
+}
+
+/** The ? button under the trophy: opens the practice lesson. */
+function drawHelp(ctx: Ctx, g: Game) {
+  if (g.tourney) return;
+  const b = g.helpBtn();
+  const active = g.phase === 'idle' && g.screen === 'none' && !g.travel;
+  iconButton(ctx, g, b, active ? 1 : 0.5);
+  ctx.globalAlpha = active ? 1 : 0.5;
+  setFont(ctx, 20 * g.L.u, '900');
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('?', b.x, b.y + 1 * g.L.u);
+  ctx.globalAlpha = 1;
+  if (active) {
+    g.hits.push({ x: b.x - b.r - 4, y: b.y - b.r - 4, w: b.r * 2 + 8, h: b.r * 2 + 8, fn: () => g.startTraining() });
+  }
+}
+
+const TRAIN_STEPS = ['Cast', 'Wait', 'Tap', 'Reel'];
+
+/** PRACTICE banner: which of the four steps you're on, plus a way out. */
+function drawTrainBanner(ctx: Ctx, g: Game) {
+  if (g.screen !== 'none') return;
+  const { W, u, safeTop } = g.L;
+  const step = g.trainStep();
+  const x = 12 * u;
+  // Below even a four-line Earl bubble.
+  const y = safeTop + 116 * u;
+  const h = 34 * u;
+  const quitW = 54 * u;
+  const w = W - x * 2 - 50 * u;
+
+  ctx.fillStyle = 'rgba(10,30,45,0.78)';
+  roundRect(ctx, x, y, w, h, h / 2);
+  ctx.fill();
+  setFont(ctx, 10.5 * u, '900');
+  const tag = 'PRACTICE';
+  const tagW = ctx.measureText(tag).width + 14 * u;
+  ctx.fillStyle = '#5fd36a';
+  roundRect(ctx, x + 5 * u, y + 5 * u, tagW, h - 10 * u, (h - 10 * u) / 2);
+  ctx.fill();
+  ctx.fillStyle = '#0f3a1a';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(tag, x + 5 * u + tagW / 2, y + h / 2 + 0.5 * u);
+
+  // Four step dots with labels
+  const left = x + tagW + 14 * u;
+  const right = x + w - quitW - 6 * u;
+  const gap = (right - left) / TRAIN_STEPS.length;
+  setFont(ctx, 11.5 * u, '800');
+  TRAIN_STEPS.forEach((name, i) => {
+    const n = i + 1;
+    const cx = left + gap * i + gap / 2;
+    ctx.fillStyle = n < step ? '#5fd36a' : n === step ? '#ffd84a' : 'rgba(255,255,255,0.5)';
+    ctx.fillText(n < step ? `✓ ${name}` : name, cx, y + h / 2 + 0.5 * u);
+  });
+
+  // QUIT
+  const qx = x + w - quitW - 5 * u;
+  ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  roundRect(ctx, qx, y + 5 * u, quitW, h - 10 * u, (h - 10 * u) / 2);
+  ctx.fill();
+  setFont(ctx, 10.5 * u, '900');
+  ctx.fillStyle = '#fff';
+  ctx.fillText('QUIT', qx + quitW / 2, y + h / 2 + 0.5 * u);
+  const canQuit = g.phase === 'idle' || g.phase === 'wait' || g.phase === 'bite' || g.phase === 'fight' || g.phase === 'fail';
+  if (canQuit) {
+    g.hits.push({ x: qx - 6 * u, y: y - 4 * u, w: quitW + 12 * u, h: h + 8 * u, fn: () => g.quitTraining() });
+  }
+}
+
+/** A ghost finger swiping up from the angler, until they cast. */
+function drawSwipeHint(ctx: Ctx, g: Game) {
+  if (g.phase !== 'idle' || g.drag || g.screen !== 'none') return;
+  const { W, u, feetY } = g.L;
+  const k = (g.time % 1.6) / 1.6;
+  const move = easeOut(clamp(k / 0.7, 0, 1));
+  const alpha = k < 0.1 ? k / 0.1 : k > 0.8 ? (1 - k) / 0.2 : 1;
+  const x = W / 2 + 85 * u;
+  const y0 = feetY - 40 * u;
+  const y = y0 - move * 170 * u;
+
+  ctx.globalAlpha = alpha * 0.7;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 6 * u;
+  ctx.lineCap = 'round';
+  ctx.setLineDash([2 * u, 12 * u]);
+  ctx.beginPath();
+  ctx.moveTo(x, y0);
+  ctx.lineTo(x, y + 20 * u);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Fingertip
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#ffd9b8';
+  ctx.strokeStyle = 'rgba(60,30,10,0.6)';
+  ctx.lineWidth = 2 * u;
+  ctx.beginPath();
+  ctx.ellipse(x, y, 13 * u, 17 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.beginPath();
+  ctx.ellipse(x, y - 7 * u, 7 * u, 6 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  label(ctx, 'SWIPE UP!', x, y0 + 28 * u, 18 * u, '#ffd84a');
 }
 
 function iconButton(ctx: Ctx, g: Game, b: { x: number; y: number; r: number }, alpha = 1) {

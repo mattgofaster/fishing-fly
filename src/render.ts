@@ -1259,6 +1259,20 @@ function drawTitle(ctx: Ctx, g: Game) {
   ctx.fillText('TAP TO START', ix + iconW + 10 * u, by + 1 * u);
   ctx.textAlign = 'center';
 
+  // HOW TO PLAY: starts the game straight into the practice lesson.
+  const hy = by - 62 * u;
+  setFont(ctx, 15 * u, '900');
+  const hw = ctx.measureText('HOW TO PLAY').width + 40 * u;
+  ctx.fillStyle = 'rgba(10,30,45,0.6)';
+  roundRect(ctx, W / 2 - hw / 2, hy - 19 * u, hw, 38 * u, 19 * u);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2 * u;
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.fillText('HOW TO PLAY', W / 2, hy + 1 * u);
+  g.hits.push({ x: W / 2 - hw / 2 - 6 * u, y: hy - 25 * u, w: hw + 12 * u, h: 50 * u, fn: () => g.leaveTitle(true) });
+
   if (INSTALL_TIP) {
     setFont(ctx, 12.5 * u, '700');
     ctx.fillStyle = '#fff';

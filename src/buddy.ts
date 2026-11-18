@@ -43,6 +43,22 @@ export const BUDDY = {
     "Too slow! It's circling. Get that thumb ready.",
     "It's coming back for seconds. Tap when it dives!",
   ],
+  helloNew: [
+    "First time? Tap the ? button on the right and I'll show you the ropes. And the rods.",
+    "New here? Hit the ? for a quick lesson. Or swipe up and wing it. I'll enjoy either.",
+  ],
+  train: {
+    start: ["Lesson time. Pay attention, there's a quiz. There's no quiz."],
+    cast: ['Swipe UP from near your angler. Longer swipe, farther cast.'],
+    trees: ['Too far! Shorter swipe. The lake is the wet part.'],
+    wait: ['Good. Now watch the bobber. Little twitches are just nibbles.'],
+    early: ["Not yet! That was a nibble. Wait till it goes ALL the way under."],
+    bite: ["It's under! TAP! Anywhere! Now!"],
+    fight: ['Hooked! Now HOLD your finger down to reel it in.'],
+    run: ["It's running! LET GO! Let it tire itself out!"],
+    reHold: ['It calmed down. HOLD again. Reel, reel, reel.'],
+    done: ["Look at you. A natural. Mostly. Partially. Let's go fishing."],
+  },
   holdIntro: [
     "HOLD your finger down to reel! When it runs, LET GO!",
     'Hold to reel it in. Let go when it splashes off. Hold, let go. Easy.',
