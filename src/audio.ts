@@ -49,55 +49,76 @@ const WHISTLE = [784, 880, 988, 1175, 1319, 1568];
 /** The background tunes the music button cycles through, then off. */
 export const TRACKS = [
   { id: 'banjo', name: 'Lazy Banjo', bpm: 86 },
-  { id: 'golden', name: 'Golden Hour', bpm: 78 },
-  { id: 'catfish', name: 'Catfish Shuffle', bpm: 100 },
+  { id: 'bop', name: 'Bobber Bop', bpm: 126 },
+  { id: 'surf', name: 'Sunfish Surf', bpm: 152 },
 ] as const;
 
 /** Shifts a frequency by a number of semitones. */
 const semi = (f: number, n: number) => f * 2 ** (n / 12);
 
 // Note frequencies used by the composed tunes.
-const A4 = 440, B4 = 493.88, C5 = 523.25, D5 = 587.33, Eb5 = 622.25, E5 = 659.25;
-const F5 = 698.46, G5 = 783.99, A5 = 880, G4 = 392;
+const A4 = 440, B4 = 493.88, C5 = 523.25, D5 = 587.33, E5 = 659.25, F5 = 698.46;
+const G5 = 783.99, Gs5 = 830.61, A5 = 880, B5 = 987.77, C6 = 1046.5, E6 = 1318.51;
 
-/** Golden Hour: a slow waltz in C. Six eighth notes to a bar, eight bars around. */
-const GOLDEN_CHORDS = [
-  { bass: 65.41, tones: [261.63, 329.63, 392.0] }, // C
-  { bass: 55.0, tones: [220.0, 261.63, 329.63] }, // Am
-  { bass: 87.31, tones: [220.0, 261.63, 349.23] }, // F
-  { bass: 98.0, tones: [196.0, 246.94, 293.66] }, // G
-  { bass: 65.41, tones: [261.63, 329.63, 392.0] }, // C
-  { bass: 55.0, tones: [220.0, 261.63, 329.63] }, // Am
-  { bass: 73.42, tones: [293.66, 349.23, 440.0] }, // Dm
-  { bass: 98.0, tones: [196.0, 246.94, 293.66] }, // G
-];
-/** The flute melody: [bar, step, frequency, length in steps]. */
-const GOLDEN_TUNE: [number, number, number, number][] = [
-  [0, 0, G4, 2], [0, 2, C5, 2], [0, 4, E5, 2],
-  [1, 0, E5, 4], [1, 4, D5, 2],
-  [2, 0, C5, 2], [2, 2, A4, 2], [2, 4, C5, 2],
-  [3, 0, D5, 6],
-  [4, 0, E5, 2], [4, 2, G5, 2], [4, 4, E5, 2],
-  [5, 0, C5, 4], [5, 4, E5, 2],
-  [6, 0, F5, 2], [6, 2, E5, 2], [6, 4, D5, 2],
-  [7, 0, B4, 4], [7, 4, D5, 2],
-];
+/** A melody note: [step in bar, frequency, length in steps]. */
+type Note = [number, number, number];
 
-/** Catfish Shuffle: a swung twelve-bar blues in A. Roots for each bar. */
-const BLUES_ROOTS = [55, 55, 55, 55, 73.42, 73.42, 55, 55, 82.41, 73.42, 55, 82.41];
-/** The boogie bass line, in semitones above the root, one per eighth. */
-const BOOGIE = [0, 4, 7, 9, 10, 9, 7, 4];
-/** Harmonica licks by bar of the twelve: [step, frequency, length in steps]. */
-const LICKS: Record<number, [number, number, number][]> = {
-  0: [[0, A5, 2], [2, G5, 1], [3, E5, 2], [5, D5, 1], [6, C5, 1], [7, A4, 1]],
-  1: [[0, A4, 4]],
-  4: [[0, D5, 1], [1, Eb5, 1], [2, E5, 2], [4, G5, 2], [6, E5, 2]],
-  5: [[0, D5, 4]],
-  8: [[0, E5, 1], [1, Eb5, 1], [2, D5, 1], [3, C5, 1], [4, A4, 3]],
-  9: [[0, C5, 2], [2, D5, 2], [4, Eb5, 1], [5, E5, 3]],
-  10: [[0, A5, 2], [2, G5, 2], [4, E5, 4]],
-  11: [[0, E5, 1], [2, E5, 1], [4, G5, 1], [6, Eb5, 2]],
+/**
+ * Bobber Bop: sunny pop in C. Sixteen bars: the hook, the hook again, a
+ * lift, then the hook to finish. Roots are bass notes, one per bar.
+ */
+const BOP_ROOTS = [65.41, 98, 55, 87.31, 65.41, 98, 55, 87.31, 87.31, 98, 82.41, 55, 65.41, 98, 55, 87.31];
+/** Chord tones for the off-beat stabs, per bar (C, G, Am, F, Em). */
+const BOP_CHORDS: Record<number, number[]> = {
+  65.41: [261.63, 329.63, 392.0],
+  98: [246.94, 293.66, 392.0],
+  55: [261.63, 329.63, 440.0],
+  87.31: [261.63, 349.23, 440.0],
+  82.41: [246.94, 329.63, 392.0],
 };
+const BOP_HOOK: Note[][] = [
+  [[0, E5, 1], [1, G5, 1], [2, A5, 2], [4, G5, 1], [5, E5, 1], [6, D5, 2]],
+  [[0, D5, 1], [1, E5, 1], [2, G5, 2], [4, D5, 2], [6, D5, 1], [7, E5, 1]],
+  [[0, C5, 1], [1, E5, 1], [2, A5, 2], [4, G5, 1], [5, E5, 1], [6, C5, 2]],
+  [[0, C5, 2], [2, D5, 2], [4, C5, 4]],
+];
+const BOP_TUNE: Note[][] = [
+  ...BOP_HOOK,
+  BOP_HOOK[0], BOP_HOOK[1], BOP_HOOK[2],
+  [[0, A5, 2], [2, G5, 2], [4, E5, 2], [6, D5, 2]],
+  // The lift
+  [[0, A5, 3], [3, G5, 1], [4, F5, 2], [6, E5, 2]],
+  [[0, D5, 3], [3, E5, 1], [4, G5, 4]],
+  [[0, G5, 3], [3, E5, 1], [4, D5, 2], [6, E5, 2]],
+  [[0, C5, 2], [2, E5, 2], [4, G5, 1], [5, A5, 1], [6, B4, 1], [7, D5, 1]],
+  ...BOP_HOOK,
+];
+
+/**
+ * Sunfish Surf: driving surf rock in A minor. Sixteen bars: the riff twice,
+ * then a soaring middle. Bass root per bar.
+ */
+const SURF_ROOTS = [55, 49, 43.65, 41.2, 55, 49, 43.65, 41.2, 43.65, 49, 55, 55, 43.65, 49, 41.2, 41.2];
+const SURF_RIFF: Note[][] = [
+  [[0, E5, 2], [2, A5, 2], [4, G5, 1], [5, A5, 1], [6, E5, 2]],
+  [[0, D5, 2], [2, G5, 2], [4, F5, 1], [5, G5, 1], [6, D5, 2]],
+  [[0, C5, 2], [2, F5, 2], [4, E5, 1], [5, F5, 1], [6, A5, 2]],
+  [[0, Gs5, 4], [4, E5, 2], [6, B4, 2]],
+];
+const SURF_TUNE: Note[][] = [
+  ...SURF_RIFF,
+  SURF_RIFF[0], SURF_RIFF[1], SURF_RIFF[2],
+  [[0, E5, 1], [1, F5, 1], [2, Gs5, 2], [4, B5, 4]],
+  // The middle: long tremolo notes that soar
+  [[0, A5, 4], [4, C6, 4]],
+  [[0, B5, 4], [4, G5, 4]],
+  [[0, A5, 8]],
+  [[0, E5, 4], [4, A5, 4]],
+  [[0, F5, 4], [4, A5, 4]],
+  [[0, G5, 4], [4, B5, 4]],
+  [[0, Gs5, 8]],
+  [[0, E5, 2], [2, Gs5, 2], [4, B5, 2], [6, E6, 2]],
+];
 
 class Sfx {
   private ctx: AudioContext | null = null;
@@ -326,8 +347,8 @@ class Sfx {
     const stepDur = 60 / bpm / 2;
     while (this.nextStep < now + 0.25) {
       const id = this.musicMode === 'tourney' ? 'banjo' : TRACKS[this.track].id;
-      if (id === 'golden') this.playGolden(this.step, this.nextStep, stepDur);
-      else if (id === 'catfish') this.playCatfish(this.step, this.nextStep, stepDur);
+      if (id === 'bop') this.playBop(this.step, this.nextStep, stepDur);
+      else if (id === 'surf') this.playSurf(this.step, this.nextStep, stepDur);
       else this.playStep(this.step, this.nextStep, stepDur);
       this.nextStep += stepDur;
       this.step++;
@@ -391,72 +412,81 @@ class Sfx {
     }
   }
 
-  /** Golden Hour: one eighth note of a slow, warm waltz. */
-  private playGolden(step: number, at: number, dur: number) {
-    const out = this.musicGain;
-    const inBar = step % 6;
-    const bar = Math.floor(step / 6);
-    const chord = GOLDEN_CHORDS[bar % 8];
-    const round = Math.floor(bar / 8);
-
-    // Oom: a long, round bass note on the one
-    if (inBar === 0) {
-      this.tone(chord.bass, dur * 5, { type: 'triangle', vol: 0.2, at, out, attack: 0.02 });
-      this.tone(chord.bass * 2, dur * 3, { type: 'sine', vol: 0.05, at, out, attack: 0.02 });
-    }
-    // Pah, pah: soft electric-piano chords with a little bell on top
-    if (inBar === 2 || inBar === 4) {
-      for (const f of chord.tones) {
-        this.tone(f, dur * 1.7, { type: 'sine', vol: 0.03, at, out, attack: 0.01 });
-        this.tone(f * 2, dur * 0.6, { type: 'sine', vol: 0.008, at, out, attack: 0.003 });
-      }
-      this.noise(0.06, { filter: 'highpass', freq: 5000, vol: 0.012, attack: 0.003, at, out });
-    }
-    if (round % 2 === 0) {
-      // The flute melody, every other time round
-      for (const [b, s, f, len] of GOLDEN_TUNE) {
-        if (b !== bar % 8 || s !== inBar) continue;
-        this.tone(f * 0.985, dur * len * 0.95, { type: 'sine', vol: 0.05, at, out, attack: 0.05, to: f });
-        this.tone(f, dur * len * 0.9, { type: 'triangle', vol: 0.012, at, out, attack: 0.06 });
-      }
-    } else if (inBar % 2 === 1) {
-      // In between, a gentle music-box ripple up the chord
-      const f = chord.tones[(inBar - 1) / 2] * 2;
-      this.tone(f, 0.45, { type: 'sine', vol: 0.018, at, out, attack: 0.004 });
-    }
-  }
-
-  /** Catfish Shuffle: one swung eighth note of a twelve-bar boogie. */
-  private playCatfish(step: number, straight: number, dur: number) {
+  /** Bobber Bop: one eighth note of bouncy, four-on-the-floor pop. */
+  private playBop(step: number, at: number, dur: number) {
     const out = this.musicGain;
     const inBar = step % 8;
     const bar = Math.floor(step / 8);
-    const root = BLUES_ROOTS[bar % 12];
-    const chorus = Math.floor(bar / 12);
-    // Swing: every off-beat eighth lands late.
-    const at = straight + (inBar % 2 ? dur * 0.33 : 0);
+    const root = BOP_ROOTS[bar % 16];
+    const loop = Math.floor(bar / 16);
 
-    // Walking boogie bass
-    this.tone(semi(root, BOOGIE[inBar]), dur * 0.95, { type: 'triangle', vol: 0.2, at, out, attack: 0.005 });
-    // Kick, snare and a shuffling hi-hat
-    if (inBar === 0 || inBar === 4) this.tone(110, 0.15, { type: 'sine', vol: 0.22, at, out, to: 45, attack: 0.002 });
+    // Kick on every beat, clap on two and four, hi-hat on the off-beats
+    if (inBar % 2 === 0) this.tone(120, 0.16, { type: 'sine', vol: 0.24, at, out, to: 42, attack: 0.002 });
     if (inBar === 2 || inBar === 6) {
-      this.noise(0.12, { filter: 'bandpass', freq: 1800, q: 0.8, vol: 0.055, attack: 0.002, at, out });
+      this.noise(0.1, { filter: 'bandpass', freq: 1500, q: 0.9, vol: 0.06, attack: 0.002, at, out });
+      this.noise(0.05, { filter: 'highpass', freq: 3000, vol: 0.03, attack: 0.001, at: at + 0.012, out });
     }
-    this.noise(0.03, { filter: 'highpass', freq: 7000, vol: inBar % 2 ? 0.018 : 0.028, attack: 0.002, at, out });
-    // Short piano stabs of the dominant seventh on the off-beats
-    if (inBar === 3 || inBar === 7) {
-      for (const n of [4, 7, 10]) this.tone(semi(root * 4, n), 0.13, { type: 'triangle', vol: 0.028, at, out, attack: 0.003 });
+    if (inBar % 2 === 1) this.noise(0.035, { filter: 'highpass', freq: 8000, vol: 0.03, attack: 0.001, at, out });
+
+    // Octave-bouncing bass: low, high, low, high
+    this.tone(inBar % 2 ? root * 2 : root, dur * 0.85, { type: 'triangle', vol: 0.19, at, out, attack: 0.004 });
+
+    // Chord stabs on the off-beats: the bit that makes your head bob
+    if (inBar % 2 === 1) {
+      for (const f of BOP_CHORDS[root]) this.tone(f, 0.1, { type: 'triangle', vol: 0.03, at, out, attack: 0.002 });
     }
-    // Harmonica: sits out the first time round, then trades licks every other chorus
-    if (chorus % 2 === 1) {
-      for (const [s, f, len] of LICKS[bar % 12] ?? []) {
-        if (s !== inBar) continue;
-        // Short notes get bent up into pitch, the bluesy way. Long ones just sing.
-        const bend = len <= 2 ? { to: f } : {};
-        this.tone(len <= 2 ? f * 0.94 : f, dur * len * 0.9, { type: 'square', vol: 0.016, at, out, attack: 0.02, ...bend });
-        this.tone(f, dur * len * 0.9, { type: 'sine', vol: 0.03, at, out, attack: 0.03 });
+
+    // The hook. Every other time round it moves up an octave onto a bright bell.
+    for (const [s, f, len] of BOP_TUNE[bar % 16]) {
+      if (s !== inBar) continue;
+      if (loop % 2 === 0) {
+        this.tone(f, dur * len * 0.9, { type: 'square', vol: 0.022, at, out, attack: 0.01 });
+        this.tone(f, dur * len * 0.95, { type: 'sine', vol: 0.045, at, out, attack: 0.01 });
+      } else {
+        this.tone(f * 2, Math.max(0.3, dur * len), { type: 'sine', vol: 0.04, at, out, attack: 0.003 });
+        this.tone(f * 4, 0.15, { type: 'sine', vol: 0.01, at, out, attack: 0.002 });
       }
+    }
+  }
+
+  /** Sunfish Surf: one eighth note of fast, twangy surf rock. */
+  private playSurf(step: number, at: number, dur: number) {
+    const out = this.musicGain;
+    const inBar = step % 8;
+    const bar = Math.floor(step / 8);
+    const root = SURF_ROOTS[bar % 16];
+
+    // Driving beat; the last bar of every eight rolls round the toms
+    const fill = bar % 8 === 7 && inBar >= 4;
+    if (fill) {
+      const tom = [220, 180, 145, 110][inBar - 4];
+      this.tone(tom, 0.18, { type: 'sine', vol: 0.2, at, out, to: tom * 0.6, attack: 0.002 });
+    } else {
+      if (inBar === 0 || inBar === 3 || inBar === 4) this.tone(110, 0.14, { type: 'sine', vol: 0.22, at, out, to: 45, attack: 0.002 });
+      if (inBar === 2 || inBar === 6) this.noise(0.11, { filter: 'bandpass', freq: 2000, q: 0.7, vol: 0.06, attack: 0.002, at, out });
+    }
+    this.noise(0.03, { filter: 'highpass', freq: 7500, vol: inBar % 2 ? 0.02 : 0.03, attack: 0.001, at, out });
+
+    // Pounding eighth-note bass, jumping to the fifth at the end of the bar
+    const bass = inBar < 6 ? root : semi(root, inBar === 6 ? 7 : 12);
+    this.tone(bass * 2, dur * 0.8, { type: 'triangle', vol: 0.2, at, out, attack: 0.003 });
+
+    // Rhythm guitar chops
+    if (inBar === 0 || inBar === 3 || inBar === 6) {
+      for (const n of [0, 7, 12]) this.tone(semi(root * 4, n), 0.09, { type: 'square', vol: 0.012, at, out, attack: 0.002 });
+    }
+
+    // Lead: tremolo-picked, two picks per eighth, with a slapback echo
+    for (const [s, f, len] of SURF_TUNE[bar % 16]) {
+      if (s !== inBar) continue;
+      const picks = len * 2;
+      for (let k = 0; k < picks; k++) {
+        const t = at + k * (dur / 2);
+        const fade = 1 - (k / picks) * 0.35;
+        this.tone(f, dur * 0.45, { type: 'square', vol: 0.016 * fade, at: t, out, attack: 0.002 });
+        this.tone(f, dur * 0.45, { type: 'triangle', vol: 0.035 * fade, at: t, out, attack: 0.002 });
+      }
+      this.tone(f, dur * len * 0.9, { type: 'triangle', vol: 0.012, at: at + dur * 0.75, out, attack: 0.01 });
     }
   }
 
