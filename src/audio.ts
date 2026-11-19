@@ -46,6 +46,59 @@ const CHORDS = [
 /** G major pentatonic, up high, for the whistled tune. */
 const WHISTLE = [784, 880, 988, 1175, 1319, 1568];
 
+/** The background tunes the music button cycles through, then off. */
+export const TRACKS = [
+  { id: 'banjo', name: 'Lazy Banjo', bpm: 86 },
+  { id: 'golden', name: 'Golden Hour', bpm: 78 },
+  { id: 'catfish', name: 'Catfish Shuffle', bpm: 100 },
+] as const;
+
+/** Shifts a frequency by a number of semitones. */
+const semi = (f: number, n: number) => f * 2 ** (n / 12);
+
+// Note frequencies used by the composed tunes.
+const A4 = 440, B4 = 493.88, C5 = 523.25, D5 = 587.33, Eb5 = 622.25, E5 = 659.25;
+const F5 = 698.46, G5 = 783.99, A5 = 880, G4 = 392;
+
+/** Golden Hour: a slow waltz in C. Six eighth notes to a bar, eight bars around. */
+const GOLDEN_CHORDS = [
+  { bass: 65.41, tones: [261.63, 329.63, 392.0] }, // C
+  { bass: 55.0, tones: [220.0, 261.63, 329.63] }, // Am
+  { bass: 87.31, tones: [220.0, 261.63, 349.23] }, // F
+  { bass: 98.0, tones: [196.0, 246.94, 293.66] }, // G
+  { bass: 65.41, tones: [261.63, 329.63, 392.0] }, // C
+  { bass: 55.0, tones: [220.0, 261.63, 329.63] }, // Am
+  { bass: 73.42, tones: [293.66, 349.23, 440.0] }, // Dm
+  { bass: 98.0, tones: [196.0, 246.94, 293.66] }, // G
+];
+/** The flute melody: [bar, step, frequency, length in steps]. */
+const GOLDEN_TUNE: [number, number, number, number][] = [
+  [0, 0, G4, 2], [0, 2, C5, 2], [0, 4, E5, 2],
+  [1, 0, E5, 4], [1, 4, D5, 2],
+  [2, 0, C5, 2], [2, 2, A4, 2], [2, 4, C5, 2],
+  [3, 0, D5, 6],
+  [4, 0, E5, 2], [4, 2, G5, 2], [4, 4, E5, 2],
+  [5, 0, C5, 4], [5, 4, E5, 2],
+  [6, 0, F5, 2], [6, 2, E5, 2], [6, 4, D5, 2],
+  [7, 0, B4, 4], [7, 4, D5, 2],
+];
+
+/** Catfish Shuffle: a swung twelve-bar blues in A. Roots for each bar. */
+const BLUES_ROOTS = [55, 55, 55, 55, 73.42, 73.42, 55, 55, 82.41, 73.42, 55, 82.41];
+/** The boogie bass line, in semitones above the root, one per eighth. */
+const BOOGIE = [0, 4, 7, 9, 10, 9, 7, 4];
+/** Harmonica licks by bar of the twelve: [step, frequency, length in steps]. */
+const LICKS: Record<number, [number, number, number][]> = {
+  0: [[0, A5, 2], [2, G5, 1], [3, E5, 2], [5, D5, 1], [6, C5, 1], [7, A4, 1]],
+  1: [[0, A4, 4]],
+  4: [[0, D5, 1], [1, Eb5, 1], [2, E5, 2], [4, G5, 2], [6, E5, 2]],
+  5: [[0, D5, 4]],
+  8: [[0, E5, 1], [1, Eb5, 1], [2, D5, 1], [3, C5, 1], [4, A4, 3]],
+  9: [[0, C5, 2], [2, D5, 2], [4, Eb5, 1], [5, E5, 3]],
+  10: [[0, A5, 2], [2, G5, 2], [4, E5, 4]],
+  11: [[0, E5, 1], [2, E5, 1], [4, G5, 1], [6, Eb5, 2]],
+};
+
 class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -64,15 +117,47 @@ class Sfx {
   /** The whistled phrase for the current four bars: [step, note index] pairs. */
   private phrase: [number, number][] = [];
   muted = false;
-  musicOn = true;
+  /** Which of TRACKS is playing, or -1 when the music is off. */
+  track = 0;
+  /** When the track last changed (performance.now), for the "now playing" label. */
+  trackChangedAt = -1e9;
 
   constructor() {
     try {
       this.muted = localStorage.getItem(MUTE_KEY) === '1';
-      this.musicOn = localStorage.getItem(MUSIC_KEY) !== '0';
+      // Older saves stored '1' / '0' for music on / off.
+      const saved = localStorage.getItem(MUSIC_KEY);
+      if (saved === '0' || saved === 'off') this.track = -1;
+      else this.track = Math.max(0, TRACKS.findIndex((t) => t.id === saved));
     } catch {
       // Storage blocked: just start unmuted.
     }
+  }
+
+  get musicOn() {
+    return this.track >= 0;
+  }
+
+  /** The music button: next tune, and after the last one, off. */
+  cycleMusic() {
+    this.track = this.track + 1 >= TRACKS.length ? -1 : this.track + 1;
+    this.trackChangedAt = performance.now();
+    try {
+      localStorage.setItem(MUSIC_KEY, this.musicOn ? TRACKS[this.track].id : 'off');
+    } catch {
+      // Not remembered, still applied.
+    }
+    if (this.ctx && this.musicGain) {
+      this.musicGain.gain.setTargetAtTime(this.musicOn ? MUSIC_VOL : 0, this.ctx.currentTime, 0.1);
+    }
+    // The new tune starts on a fresh bar.
+    this.step = 0;
+    this.phrase = [];
+  }
+
+  /** What the "now playing" label says. */
+  trackLabel() {
+    return this.musicOn ? TRACKS[this.track].name : 'Music off';
   }
 
   unlock() {
@@ -115,18 +200,6 @@ class Sfx {
     }
     if (this.ctx && this.master) {
       this.master.gain.setTargetAtTime(m ? 0 : VOLUME, this.ctx.currentTime, 0.02);
-    }
-  }
-
-  setMusic(on: boolean) {
-    this.musicOn = on;
-    try {
-      localStorage.setItem(MUSIC_KEY, on ? '1' : '0');
-    } catch {
-      // Not remembered, still applied.
-    }
-    if (this.ctx && this.musicGain) {
-      this.musicGain.gain.setTargetAtTime(on ? MUSIC_VOL : 0, this.ctx.currentTime, 0.1);
     }
   }
 
@@ -249,9 +322,13 @@ class Sfx {
     const now = c.currentTime;
     // Fell behind (app was paused), or the clock did something odd: pick up from now.
     if (this.nextStep < now - 0.1 || this.nextStep > now + 1) this.nextStep = now + 0.05;
-    const stepDur = this.musicMode === 'tourney' ? 60 / 132 / 2 : 60 / 86 / 2;
+    const bpm = this.musicMode === 'tourney' ? 132 : TRACKS[this.track].bpm;
+    const stepDur = 60 / bpm / 2;
     while (this.nextStep < now + 0.25) {
-      this.playStep(this.step, this.nextStep, stepDur);
+      const id = this.musicMode === 'tourney' ? 'banjo' : TRACKS[this.track].id;
+      if (id === 'golden') this.playGolden(this.step, this.nextStep, stepDur);
+      else if (id === 'catfish') this.playCatfish(this.step, this.nextStep, stepDur);
+      else this.playStep(this.step, this.nextStep, stepDur);
       this.nextStep += stepDur;
       this.step++;
     }
@@ -310,6 +387,75 @@ class Sfx {
           const wf = WHISTLE[n];
           this.tone(wf * 0.97, dur * 1.7, { type: 'sine', vol: 0.035, at, out, attack: 0.04, to: wf });
         }
+      }
+    }
+  }
+
+  /** Golden Hour: one eighth note of a slow, warm waltz. */
+  private playGolden(step: number, at: number, dur: number) {
+    const out = this.musicGain;
+    const inBar = step % 6;
+    const bar = Math.floor(step / 6);
+    const chord = GOLDEN_CHORDS[bar % 8];
+    const round = Math.floor(bar / 8);
+
+    // Oom: a long, round bass note on the one
+    if (inBar === 0) {
+      this.tone(chord.bass, dur * 5, { type: 'triangle', vol: 0.2, at, out, attack: 0.02 });
+      this.tone(chord.bass * 2, dur * 3, { type: 'sine', vol: 0.05, at, out, attack: 0.02 });
+    }
+    // Pah, pah: soft electric-piano chords with a little bell on top
+    if (inBar === 2 || inBar === 4) {
+      for (const f of chord.tones) {
+        this.tone(f, dur * 1.7, { type: 'sine', vol: 0.03, at, out, attack: 0.01 });
+        this.tone(f * 2, dur * 0.6, { type: 'sine', vol: 0.008, at, out, attack: 0.003 });
+      }
+      this.noise(0.06, { filter: 'highpass', freq: 5000, vol: 0.012, attack: 0.003, at, out });
+    }
+    if (round % 2 === 0) {
+      // The flute melody, every other time round
+      for (const [b, s, f, len] of GOLDEN_TUNE) {
+        if (b !== bar % 8 || s !== inBar) continue;
+        this.tone(f * 0.985, dur * len * 0.95, { type: 'sine', vol: 0.05, at, out, attack: 0.05, to: f });
+        this.tone(f, dur * len * 0.9, { type: 'triangle', vol: 0.012, at, out, attack: 0.06 });
+      }
+    } else if (inBar % 2 === 1) {
+      // In between, a gentle music-box ripple up the chord
+      const f = chord.tones[(inBar - 1) / 2] * 2;
+      this.tone(f, 0.45, { type: 'sine', vol: 0.018, at, out, attack: 0.004 });
+    }
+  }
+
+  /** Catfish Shuffle: one swung eighth note of a twelve-bar boogie. */
+  private playCatfish(step: number, straight: number, dur: number) {
+    const out = this.musicGain;
+    const inBar = step % 8;
+    const bar = Math.floor(step / 8);
+    const root = BLUES_ROOTS[bar % 12];
+    const chorus = Math.floor(bar / 12);
+    // Swing: every off-beat eighth lands late.
+    const at = straight + (inBar % 2 ? dur * 0.33 : 0);
+
+    // Walking boogie bass
+    this.tone(semi(root, BOOGIE[inBar]), dur * 0.95, { type: 'triangle', vol: 0.2, at, out, attack: 0.005 });
+    // Kick, snare and a shuffling hi-hat
+    if (inBar === 0 || inBar === 4) this.tone(110, 0.15, { type: 'sine', vol: 0.22, at, out, to: 45, attack: 0.002 });
+    if (inBar === 2 || inBar === 6) {
+      this.noise(0.12, { filter: 'bandpass', freq: 1800, q: 0.8, vol: 0.055, attack: 0.002, at, out });
+    }
+    this.noise(0.03, { filter: 'highpass', freq: 7000, vol: inBar % 2 ? 0.018 : 0.028, attack: 0.002, at, out });
+    // Short piano stabs of the dominant seventh on the off-beats
+    if (inBar === 3 || inBar === 7) {
+      for (const n of [4, 7, 10]) this.tone(semi(root * 4, n), 0.13, { type: 'triangle', vol: 0.028, at, out, attack: 0.003 });
+    }
+    // Harmonica: sits out the first time round, then trades licks every other chorus
+    if (chorus % 2 === 1) {
+      for (const [s, f, len] of LICKS[bar % 12] ?? []) {
+        if (s !== inBar) continue;
+        // Short notes get bent up into pitch, the bluesy way. Long ones just sing.
+        const bend = len <= 2 ? { to: f } : {};
+        this.tone(len <= 2 ? f * 0.94 : f, dur * len * 0.9, { type: 'square', vol: 0.016, at, out, attack: 0.02, ...bend });
+        this.tone(f, dur * len * 0.9, { type: 'sine', vol: 0.03, at, out, attack: 0.03 });
       }
     }
   }

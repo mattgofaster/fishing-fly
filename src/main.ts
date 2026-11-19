@@ -46,7 +46,7 @@ canvas.addEventListener('pointerdown', (e) => {
   }
   const mu = game.musicBtn();
   if (Math.hypot(p.x - mu.x, p.y - mu.y) < mu.r * 1.3) {
-    sfx.setMusic(!sfx.musicOn);
+    sfx.cycleMusic();
     return;
   }
   activePointer = e.pointerId;

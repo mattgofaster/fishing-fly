@@ -156,7 +156,7 @@ function iconButton(ctx: Ctx, g: Game, b: { x: number; y: number; r: number }, a
   void g;
 }
 
-/** Music on/off, drawn next to the speaker. */
+/** Music picker, under the speaker: each tap plays the next tune, then off. */
 export function drawMusicButton(ctx: Ctx, g: Game) {
   const b = g.musicBtn();
   iconButton(ctx, g, b);
@@ -185,8 +185,43 @@ export function drawMusicButton(ctx: Ctx, g: Game) {
     ctx.moveTo(-10, -10);
     ctx.lineTo(10, 10);
     ctx.stroke();
+  } else {
+    // Which tune: a little numbered badge
+    ctx.fillStyle = '#ffd84a';
+    ctx.beginPath();
+    ctx.arc(12, 12, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    setFont(ctx, 9, '900');
+    ctx.fillStyle = '#5a1a0c';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(sfx.track + 1), 12, 12.5);
   }
   ctx.restore();
+
+  // Now playing: slides out to the left of the button after a tap, then fades.
+  const since = (performance.now() - sfx.trackChangedAt) / 1000;
+  if (since < 2.2) {
+    const { u } = g.L;
+    const a = clamp(Math.min(since / 0.15, (2.2 - since) / 0.4), 0, 1);
+    const text = sfx.muted && sfx.musicOn ? `${sfx.trackLabel()} (sound off)` : sfx.trackLabel();
+    setFont(ctx, 13 * u, '800');
+    const w = ctx.measureText(text).width + 34 * u;
+    const h = 28 * u;
+    const x = b.x - b.r - 8 * u - w + (1 - a) * 12 * u;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(10,30,45,0.8)';
+    roundRect(ctx, x, b.y - h / 2, w, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = sfx.musicOn ? '#ffd84a' : '#ff8a7a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(sfx.musicOn ? '♪' : '✕', x + 14 * u, b.y + 1 * u);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.fillText(text, x + 24 * u, b.y + 1 * u);
+    ctx.globalAlpha = 1;
+  }
 }
 
 function drawTrophy(ctx: Ctx, g: Game) {
