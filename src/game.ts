@@ -384,6 +384,7 @@ export class Game {
       case 'squeak': sfx.squeak(); break;
       case 'ring': sfx.ring(); break;
       case 'clank': sfx.clank(); break;
+      case 'tick': for (let i = 0; i < 4; i++) sfx.tick(true, i * 0.2); break;
       default: sfx.fishTalk(this.weight);
     }
   }

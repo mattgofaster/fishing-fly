@@ -2,7 +2,7 @@ import { spotById } from './spots';
 import { clamp } from './util';
 
 export interface Look {
-  kind: 'fish' | 'boot' | 'turtle' | 'cart' | 'can' | 'phone' | 'duck' | 'bottle';
+  kind: 'fish' | 'boot' | 'turtle' | 'cart' | 'can' | 'phone' | 'duck' | 'bottle' | 'watch';
   body: string;
   belly: string;
   fin: string;
@@ -27,7 +27,7 @@ export interface Catch {
   /** An object rather than a creature: no shadow, can't swim off. */
   junk?: boolean;
   /** What it sounds like when it "talks". Fish babble by default. */
-  voice?: 'squelch' | 'squeak' | 'ring' | 'clank';
+  voice?: 'squelch' | 'squeak' | 'ring' | 'clank' | 'tick';
   minLb: number;
   maxLb: number;
   coinPerLb: number;
@@ -706,6 +706,36 @@ export const CATALOG: Catch[] = [
     buddy: [
       'Somebody needs rescuing. Not our problem. We are fishing.',
       "Don't read it out loud. It's probably about feelings.",
+    ],
+  },
+  {
+    id: 'rolex',
+    name: "Gary's Rolex",
+    junk: true,
+    voice: 'tick',
+    look: { kind: 'watch', body: '#e2b23c', belly: '#f6efd9', fin: '#1f2a36', stretch: 1 },
+    minLb: 0.3,
+    maxLb: 0.4,
+    coinPerLb: 1,
+    flatCoins: 250,
+    power: 0,
+    runSpeed: 0,
+    heft: 0.05,
+    runChance: 0,
+    band: [0.4, 1],
+    rarity: 0.3,
+    biteWindow: 1.8,
+    desc: "Solid gold, waterproof to 100 metres, engraved 'To Gary, from Gary'. Still runs four minutes fast.",
+    lines: {
+      bite: ['(tick tick tick)'],
+      fight: ['(tick tick)', '(glints expensively)', '(still four minutes fast)'],
+      escape: ["(sinks back down, along with Gary's dignity)"],
+      caught: ['(It is 10:10. It is always 10:10.)'],
+    },
+    buddy: [
+      "Gary's been looking for that since the 2009 derby. We are not telling Gary.",
+      'Gary says it is real. Gary also says he was a fighter pilot.',
+      "Finders keepers. Gary owes me forty bucks anyway.",
     ],
   },
 ];

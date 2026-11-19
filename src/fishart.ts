@@ -26,7 +26,7 @@ export function drawCatch(
   } else {
     // Everything else is drawn in a 100-unit box.
     ctx.scale(len / 100, len / 100);
-    drawLit(ctx, -70, -70, 140, 140, (c) => {
+    drawLit(ctx, -80, -80, 160, 160, (c) => {
       c.lineJoin = 'round';
       c.lineCap = 'round';
       c.lineWidth = 2.5;
@@ -39,6 +39,7 @@ export function drawCatch(
         case 'phone': drawPhone(c, look, t); break;
         case 'duck': drawDuck(c, look, t); break;
         case 'bottle': drawBottle(c, look, t); break;
+        case 'watch': drawWatch(c, look, t); break;
       }
     }, 1.5);
   }
@@ -694,6 +695,109 @@ function drawBottle(ctx: Ctx, look: Look, t: number) {
     ctx.stroke();
   }
   drip(ctx, 0, 46, t);
+}
+
+/** A chunky gold wristwatch, bracelet looping above and below. Still ticking. */
+function drawWatch(ctx: Ctx, look: Look, t: number) {
+  ctx.rotate(-0.18 + Math.sin(t * 2) * 0.05);
+  const gold = look.body;
+  const goldDark = '#a87a1e';
+
+  // Bracelet: rows of links running up and down from the case
+  for (const dir of [-1, 1]) {
+    for (let i = 0; i < 4; i++) {
+      const y = dir * (30 + i * 7.5);
+      const w = 30 - i * 1.2;
+      ctx.fillStyle = i % 2 ? goldDark : gold;
+      roundRect(ctx, -w / 2, y - 3.6, w, 7.2, 2.5);
+      ctx.fill();
+      ctx.stroke();
+      // Centre link, polished
+      ctx.fillStyle = 'rgba(255,248,215,0.55)';
+      ctx.fillRect(-w * 0.16, y - 3, w * 0.32, 6);
+    }
+  }
+
+  // Crown on the right of the case
+  ctx.fillStyle = gold;
+  roundRect(ctx, 30, -5, 8, 10, 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Case and fluted bezel
+  ctx.beginPath();
+  ctx.arc(0, 0, 32, 0, Math.PI * 2);
+  ctx.fillStyle = gold;
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = goldDark;
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < 40; i++) {
+    const a = (i / 40) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 27, Math.sin(a) * 27);
+    ctx.lineTo(Math.cos(a) * 31, Math.sin(a) * 31);
+    ctx.stroke();
+  }
+
+  // Dial
+  ctx.beginPath();
+  ctx.arc(0, 0, 25, 0, Math.PI * 2);
+  ctx.fillStyle = look.belly;
+  ctx.fill();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = look.fin;
+  for (let h = 0; h < 12; h++) {
+    const a = (h / 12) * Math.PI * 2;
+    const big = h % 3 === 0;
+    ctx.save();
+    ctx.rotate(a);
+    ctx.fillRect(-1.2, -22, 2.4, big ? 6 : 3.5);
+    ctx.restore();
+  }
+  ctx.font = `900 6px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('GARY', 0, -9);
+  ctx.font = `800 3px ${FONT}`;
+  ctx.fillText('PERPETUALLY LATE', 0, 10.5);
+
+  // Hands: stuck at ten past ten, except the seconds, which tick on
+  const hand = (a: number, len: number, w: number, color: string) => {
+    ctx.save();
+    ctx.rotate(a);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = w;
+    ctx.beginPath();
+    ctx.moveTo(0, 3);
+    ctx.lineTo(0, -len);
+    ctx.stroke();
+    ctx.restore();
+  };
+  hand((10.17 / 12) * Math.PI * 2, 12, 3, look.fin);
+  hand((10 / 60) * Math.PI * 2, 18, 2.2, look.fin);
+  hand((Math.floor(t) % 60 / 60) * Math.PI * 2, 20, 1, '#c0392b');
+  ctx.fillStyle = look.fin;
+  ctx.beginPath();
+  ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Crystal glare
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(-8, -12, 11, 5, -0.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // A strand of weed caught in the bracelet
+  ctx.strokeStyle = '#3f9a55';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(-14, 40);
+  ctx.quadraticCurveTo(-30, 44, -25, 54);
+  ctx.stroke();
+  drip(ctx, 4, 58, t);
 }
 
 function drawPhone(ctx: Ctx, look: Look, t: number) {
