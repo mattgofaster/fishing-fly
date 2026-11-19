@@ -947,14 +947,38 @@ function drawBuddy(ctx: Ctx, g: Game) {
   ctx.beginPath();
   ctx.ellipse(0, 30, 24, 14, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#e3b184';
+  // Shirt shoulders catch the light on the right
+  const shirt = ctx.createLinearGradient(-24, 0, 24, 0);
+  shirt.addColorStop(0, 'rgba(0,0,0,0.3)');
+  shirt.addColorStop(1, 'rgba(255,255,220,0.12)');
+  ctx.fillStyle = shirt;
+  ctx.beginPath();
+  ctx.ellipse(0, 30, 24, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Shadow the head casts on the shirt
+  ctx.fillStyle = 'rgba(30,20,10,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(-2, 17, 11, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const face = ctx.createRadialGradient(5, -2, 2, 0, 2, 15);
+  face.addColorStop(0, '#f3c99e');
+  face.addColorStop(0.65, '#dca77a');
+  face.addColorStop(1, '#a8754f');
+  ctx.fillStyle = face;
   ctx.beginPath();
   ctx.arc(0, 2, 14, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#c0392b';
+  const cap = ctx.createLinearGradient(-14, -17, 14, -3);
+  cap.addColorStop(0, '#8e2318');
+  cap.addColorStop(0.6, '#c0392b');
+  cap.addColorStop(1, '#e05a48');
+  ctx.fillStyle = cap;
   ctx.beginPath();
   ctx.arc(0, -3, 14.5, Math.PI, 0);
   ctx.fill();
+  // The brim shades his forehead
+  ctx.fillStyle = 'rgba(60,20,10,0.3)';
+  ctx.fillRect(-13, -2, 26, 3);
   ctx.fillStyle = '#9c2b20';
   roundRect(ctx, -3, -6, 22, 5, 2.5);
   ctx.fill();
@@ -964,6 +988,10 @@ function drawBuddy(ctx: Ctx, g: Game) {
   roundRect(ctx, 2, 0, 9, 6, 2);
   ctx.fill();
   ctx.fillRect(-3, 1.5, 6, 1.5);
+  // Glint on the sunglasses
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillRect(6, 1, 3, 1.5);
+  ctx.fillRect(-7, 1, 3, 1.5);
   ctx.fillStyle = '#6b4a2a';
   ctx.beginPath();
   ctx.ellipse(0, 11, 8, 3.2, 0, 0, Math.PI * 2);
@@ -1216,6 +1244,17 @@ function drawResult(ctx: Ctx, g: Game) {
   ctx.arc(cx, py, pr, 0, Math.PI * 2);
   ctx.fill();
   const wobble = Math.sin(g.time * 3) * 4 * u;
+  // A soft shadow below, so the catch floats in front of the backdrop
+  const sh = ctx.createRadialGradient(cx, py + 50 * u, 0, cx, py + 50 * u, 56 * u);
+  sh.addColorStop(0, 'rgba(10,40,60,0.28)');
+  sh.addColorStop(1, 'rgba(10,40,60,0)');
+  ctx.save();
+  ctx.translate(cx, py + 50 * u);
+  ctx.scale(1, 0.22);
+  ctx.translate(-cx, -(py + 50 * u));
+  ctx.fillStyle = sh;
+  ctx.fillRect(cx - 56 * u, py + 50 * u - 56 * u, 112 * u, 112 * u);
+  ctx.restore();
   const len = r.c.look.kind === 'fish' ? 136 * u : 104 * u;
   drawCatch(ctx, r.c.look, cx + (r.c.look.kind === 'fish' ? 6 * u : 0), py + wobble, len, g.time);
 

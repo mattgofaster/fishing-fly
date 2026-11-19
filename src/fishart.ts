@@ -1,5 +1,6 @@
 import { Look } from './catalog';
 import { FONT, roundRect } from './util';
+import { drawLit } from './lighting';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -25,17 +26,21 @@ export function drawCatch(
   } else {
     // Everything else is drawn in a 100-unit box.
     ctx.scale(len / 100, len / 100);
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = INK;
-    switch (look.kind) {
-      case 'boot': drawBoot(ctx, look, t); break;
-      case 'turtle': drawTurtle(ctx, look, t); break;
-      case 'cart': drawCart(ctx, look, t); break;
-      case 'can': drawCan(ctx, look, t); break;
-      case 'phone': drawPhone(ctx, look, t); break;
-      case 'duck': drawDuck(ctx, look, t); break;
-      case 'bottle': drawBottle(ctx, look, t); break;
-    }
+    drawLit(ctx, -70, -70, 140, 140, (c) => {
+      c.lineJoin = 'round';
+      c.lineCap = 'round';
+      c.lineWidth = 2.5;
+      c.strokeStyle = INK;
+      switch (look.kind) {
+        case 'boot': drawBoot(c, look, t); break;
+        case 'turtle': drawTurtle(c, look, t); break;
+        case 'cart': drawCart(c, look, t); break;
+        case 'can': drawCan(c, look, t); break;
+        case 'phone': drawPhone(c, look, t); break;
+        case 'duck': drawDuck(c, look, t); break;
+        case 'bottle': drawBottle(c, look, t); break;
+      }
+    }, 1.5);
   }
   ctx.restore();
 }
@@ -59,9 +64,13 @@ function drawFish(ctx: Ctx, look: Look, len: number, t: number) {
   ctx.lineTo(-len * 0.2, -h * 0.5);
   ctx.quadraticCurveTo(-len * 0.11, 0, -len * 0.2, h * 0.5);
   ctx.closePath();
-  ctx.fillStyle = look.fin;
+  const tail = ctx.createLinearGradient(0, 0, -len * 0.2, 0);
+  tail.addColorStop(0, shadeOf(look.fin, -0.25));
+  tail.addColorStop(1, shadeOf(look.fin, 0.12));
+  ctx.fillStyle = tail;
   ctx.fill();
   ctx.stroke();
+  finRays(ctx, [[0, 0, -len * 0.19, -h * 0.4], [0, 0, -len * 0.15, -h * 0.15], [0, 0, -len * 0.15, h * 0.15], [0, 0, -len * 0.19, h * 0.4]], len);
   ctx.restore();
 
   // Dorsal fin
@@ -72,6 +81,11 @@ function drawFish(ctx: Ctx, look: Look, len: number, t: number) {
   ctx.fillStyle = look.fin;
   ctx.fill();
   ctx.stroke();
+  finRays(ctx, [
+    [-rx * 0.35, -ry * 0.8, -rx * 0.3, -ry * 1.25],
+    [-rx * 0.15, -ry * 0.8, -rx * 0.05, -ry * 1.35],
+    [rx * 0.05, -ry * 0.8, rx * 0.15, -ry * 1.2],
+  ], len);
 
   // Body with belly and markings clipped inside it
   ctx.beginPath();
@@ -116,6 +130,43 @@ function drawFish(ctx: Ctx, look: Look, len: number, t: number) {
       ctx.fill();
     }
   }
+  // Volume: a dark back, a sunlit flank, a shaded underside...
+  const round = ctx.createLinearGradient(0, -ry, 0, ry);
+  round.addColorStop(0, 'rgba(10,20,30,0.38)');
+  round.addColorStop(0.3, 'rgba(255,255,240,0.14)');
+  round.addColorStop(0.62, 'rgba(255,255,240,0)');
+  round.addColorStop(1, 'rgba(10,20,30,0.32)');
+  ctx.fillStyle = round;
+  ctx.fillRect(-rx, -ry, rx * 2, ry * 2);
+  // ...and the body turning away from you toward the tail.
+  const turn = ctx.createLinearGradient(-rx, 0, rx, 0);
+  turn.addColorStop(0, 'rgba(10,20,30,0.3)');
+  turn.addColorStop(0.35, 'rgba(10,20,30,0)');
+  turn.addColorStop(0.85, 'rgba(10,20,30,0)');
+  turn.addColorStop(1, 'rgba(10,20,30,0.18)');
+  ctx.fillStyle = turn;
+  ctx.fillRect(-rx, -ry, rx * 2, ry * 2);
+  // Wet sheen along the upper flank
+  const sheen = ctx.createRadialGradient(rx * 0.05, -ry * 0.42, 0, rx * 0.05, -ry * 0.42, rx * 0.6);
+  sheen.addColorStop(0, 'rgba(255,255,255,0.4)');
+  sheen.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.save();
+  ctx.translate(rx * 0.05, -ry * 0.42);
+  ctx.scale(1, 0.22);
+  ctx.translate(-rx * 0.05, ry * 0.42);
+  ctx.fillStyle = sheen;
+  ctx.fillRect(-rx, -ry * 3, rx * 2, ry * 6);
+  ctx.restore();
+  // Gill cover
+  ctx.strokeStyle = 'rgba(10,20,30,0.3)';
+  ctx.lineWidth = Math.max(1, len * 0.014);
+  ctx.beginPath();
+  ctx.arc(rx * 0.05, 0, ry * 0.95, -0.95, 0.95);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath();
+  ctx.arc(rx * 0.05 + len * 0.012, 0, ry * 0.95, -0.85, 0.85);
+  ctx.stroke();
   ctx.restore();
   ctx.lineWidth = thin;
   ctx.strokeStyle = 'rgba(20,30,40,0.55)';
@@ -129,9 +180,12 @@ function drawFish(ctx: Ctx, look: Look, len: number, t: number) {
   ctx.rotate(0.5 + Math.sin(t * 5) * 0.2);
   ctx.beginPath();
   ctx.ellipse(-rx * 0.12, 0, rx * 0.2, ry * 0.2, 0, 0, Math.PI * 2);
+  ctx.globalAlpha = 0.85;
   ctx.fillStyle = look.fin;
   ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.stroke();
+  finRays(ctx, [[rx * 0.06, 0, -rx * 0.28, -ry * 0.1], [rx * 0.06, 0, -rx * 0.28, ry * 0.1]], len);
   ctx.restore();
 
   // Whiskers
@@ -198,6 +252,11 @@ function drawFish(ctx: Ctx, look: Look, len: number, t: number) {
     ctx.arc(ex, ey + er * 0.3, er * 0.85, Math.PI * 1.1, Math.PI * 1.9);
     ctx.stroke();
   } else {
+    // The eye sits in a socket
+    ctx.beginPath();
+    ctx.arc(ex - er * 0.1, ey + er * 0.12, er * 1.28, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(10,20,30,0.18)';
+    ctx.fill();
     ctx.beginPath();
     ctx.arc(ex, ey, er, 0, Math.PI * 2);
     ctx.fillStyle = look.bigEye ? '#fff7d6' : '#fff';
@@ -269,6 +328,29 @@ function drawFish(ctx: Ctx, look: Look, len: number, t: number) {
     ctx.fillRect(-hw * 0.5, -hw * 0.38, hw, hw * 0.22);
     ctx.restore();
   }
+}
+
+/** Thin lines fanning through a fin. Each ray is [x0, y0, x1, y1]. */
+function finRays(ctx: Ctx, rays: [number, number, number, number][], len: number) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(10,20,30,0.22)';
+  ctx.lineWidth = Math.max(0.8, len * 0.008);
+  ctx.beginPath();
+  for (const [x0, y0, x1, y1] of rays) {
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Lighten (k > 0) or darken (k < 0) a #rrggbb colour. Other formats pass through. */
+function shadeOf(c: string, k: number): string {
+  if (!/^#[0-9a-f]{6}$/i.test(c)) return c;
+  const n = parseInt(c.slice(1), 16);
+  const to = k > 0 ? 255 : 0;
+  const ch = (v: number) => Math.round(v + (to - v) * Math.abs(k));
+  return `rgb(${ch((n >> 16) & 255)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
 }
 
 // ---------- Everything that is not a fish (100-unit box) ----------

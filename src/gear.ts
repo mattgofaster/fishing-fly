@@ -1,4 +1,5 @@
 import { roundRect } from './util';
+import { drawLit } from './lighting';
 
 /** Upgrades come in tiers: you always use the best one you own. */
 export const RODS = [
@@ -44,7 +45,12 @@ export const HATS = [
 ];
 
 /** Draws a hat sitting on a head of radius 13 centred at the origin. */
+/** Draws a hat on a head at the origin, lit like the rest of the scene. */
 export function drawHat(ctx: CanvasRenderingContext2D, id: string, t: number) {
+  drawLit(ctx, -32, -42, 64, 48, (c) => hatShape(c, id, t), 1.1);
+}
+
+function hatShape(ctx: CanvasRenderingContext2D, id: string, t: number) {
   switch (id) {
     case 'cowboy': {
       ctx.fillStyle = '#8a5a2b';

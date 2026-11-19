@@ -123,55 +123,114 @@ export function drawBackdrop(ctx: Ctx, g: Game) {
   ctx.drawImage(baked.canvas, -30, -30, W + 60, H + 60);
 }
 
-interface Tree { x: number; r: number; pine: boolean }
+interface Tree { x: number; r: number; pine: boolean; seed: number }
 
-function treeRow(W: number, u: number, n: number, rMin: number, rMax: number, seed: number): Tree[] {
+function treeRow(W: number, u: number, n: number, rMin: number, rMax: number, seed: number, pines: number): Tree[] {
   const out: Tree[] = [];
   for (let i = 0; i <= n; i++) {
     out.push({
-      x: (i / n) * W + (hash(seed + i) - 0.5) * (W / n) * 0.8,
+      x: (i / n) * W + (hash(seed + i) - 0.5) * (W / n) * 0.9,
       r: lerp(rMin, rMax, hash(seed + i + 50)) * u,
-      pine: hash(seed + i + 90) < 0.3,
+      pine: hash(seed + i + 90) < pines,
+      seed: seed * 31 + i * 7,
     });
   }
   return out;
 }
 
-/** Draws a row of trees standing on `base`. Unlit when `lit` is null (reflections). */
-function drawTrees(ctx: Ctx, trees: Tree[], base: number, dark: string, lit: string | null) {
+/** Shadow, body and sunlit colours for a row of trees. Reflections use `dark` only. */
+interface Palette { dark: string; mid?: string; light?: string; trunk?: string }
+
+/** Draws a row of trees standing on `base`. */
+function drawTrees(ctx: Ctx, trees: Tree[], base: number, pal: Palette) {
   for (const t of trees) {
-    if (t.pine) {
-      const h = t.r * 3.2;
-      ctx.fillStyle = dark;
+    if (t.pine) pine(ctx, t, base, pal);
+    else broadleaf(ctx, t, base, pal);
+  }
+}
+
+/** A leafy tree: a trunk under a dome of foliage clumps, lit from the upper right. */
+function broadleaf(ctx: Ctx, t: Tree, base: number, pal: Palette) {
+  const r = t.r;
+  const cx = t.x;
+  const cy = base - r * 1.15;
+  if (pal.trunk) {
+    ctx.fillStyle = pal.trunk;
+    ctx.beginPath();
+    ctx.moveTo(cx - r * 0.13, base);
+    ctx.lineTo(cx - r * 0.07, cy);
+    ctx.lineTo(cx + r * 0.07, cy);
+    ctx.lineTo(cx + r * 0.13, base);
+    ctx.closePath();
+    ctx.fill();
+  }
+  const clumps: [number, number, number][] = [];
+  const n = 7;
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2 + hash(t.seed + k) * 0.7;
+    const d = r * 0.52 * (0.75 + hash(t.seed + k + 20) * 0.4);
+    clumps.push([cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.8, r * (0.4 + hash(t.seed + k + 40) * 0.18)]);
+  }
+  clumps.push([cx, cy - r * 0.1, r * 0.55]);
+  const blob = (dx: number, dy: number, k: number, keep: (c: [number, number, number]) => boolean) => {
+    ctx.beginPath();
+    for (const c of clumps) {
+      if (!keep(c)) continue;
+      const x = c[0] + c[2] * dx;
+      const y = c[1] + c[2] * dy;
+      ctx.moveTo(x + c[2] * k, y);
+      ctx.arc(x, y, c[2] * k, 0, Math.PI * 2);
+    }
+    ctx.fill();
+  };
+  ctx.fillStyle = pal.dark;
+  blob(0, 0, 1, () => true);
+  if (pal.mid) {
+    ctx.fillStyle = pal.mid;
+    blob(0.18, -0.22, 0.7, (c) => c[1] < cy + r * 0.3);
+  }
+  if (pal.light) {
+    ctx.fillStyle = pal.light;
+    blob(0.3, -0.36, 0.4, (c) => c[0] - cx - (c[1] - cy) > r * 0.15);
+  }
+}
+
+/** A conifer: tiers of drooping boughs, narrowing to a point. */
+function pine(ctx: Ctx, t: Tree, base: number, pal: Palette) {
+  const r = t.r * 0.95;
+  const x = t.x;
+  const h = r * 3.6;
+  if (pal.trunk) {
+    ctx.fillStyle = pal.trunk;
+    ctx.fillRect(x - r * 0.09, base - r * 0.6, r * 0.18, r * 0.6);
+  }
+  const tiers = 4;
+  for (let i = 0; i < tiers; i++) {
+    const y0 = base - r * 0.4 - i * h * 0.19;
+    const w = r * (1 - i * 0.2);
+    const top = i === tiers - 1 ? base - h : y0 - h * 0.34;
+    const droop = r * 0.14;
+    ctx.fillStyle = pal.dark;
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x + w, y0);
+    ctx.lineTo(x + w * 0.55, y0 - droop);
+    ctx.lineTo(x + w * 0.2, y0 + droop * 0.3);
+    ctx.lineTo(x - w * 0.2, y0 - droop * 0.6);
+    ctx.lineTo(x - w * 0.6, y0 + droop * 0.2);
+    ctx.lineTo(x - w, y0);
+    ctx.closePath();
+    ctx.fill();
+    if (pal.mid) {
+      ctx.fillStyle = pal.mid;
       ctx.beginPath();
-      ctx.moveTo(t.x, base - h);
-      ctx.lineTo(t.x + t.r * 0.9, base);
-      ctx.lineTo(t.x - t.r * 0.9, base);
+      ctx.moveTo(x, top);
+      ctx.lineTo(x + w, y0);
+      ctx.lineTo(x + w * 0.55, y0 - droop);
+      ctx.lineTo(x + w * 0.2, y0 + droop * 0.3);
+      ctx.lineTo(x + w * 0.05, y0 - droop);
       ctx.closePath();
       ctx.fill();
-      if (lit) {
-        ctx.fillStyle = lit;
-        ctx.beginPath();
-        ctx.moveTo(t.x, base - h);
-        ctx.lineTo(t.x + t.r * 0.9, base);
-        ctx.lineTo(t.x + t.r * 0.15, base);
-        ctx.closePath();
-        ctx.fill();
-      }
-    } else {
-      const cy = base - t.r * 0.9;
-      ctx.fillStyle = dark;
-      ctx.beginPath();
-      ctx.arc(t.x, cy, t.r, 0, Math.PI * 2);
-      ctx.arc(t.x - t.r * 0.6, base - t.r * 0.45, t.r * 0.7, 0, Math.PI * 2);
-      ctx.arc(t.x + t.r * 0.6, base - t.r * 0.45, t.r * 0.7, 0, Math.PI * 2);
-      ctx.fill();
-      if (lit) {
-        ctx.fillStyle = lit;
-        ctx.beginPath();
-        ctx.arc(t.x + t.r * 0.28, cy - t.r * 0.3, t.r * 0.6, 0, Math.PI * 2);
-        ctx.fill();
-      }
     }
   }
 }
@@ -204,8 +263,8 @@ function bake(c: Ctx, g: Game) {
   c.fillStyle = water;
   c.fillRect(-30, waterTop, W + 60, H - waterTop + 30);
 
-  const back = treeRow(W, u, 34, 4.5, 7.5, 1);
-  const front = treeRow(W, u, 20, 8, 14, 200);
+  const back = treeRow(W, u, 52, 4.5, 8, 1, 0.35);
+  const front = treeRow(W, u, 36, 7, 13.5, 200, 0.3);
 
   // The far bank, upside down in the water, broken up by ripples.
   c.save();
@@ -217,8 +276,8 @@ function bake(c: Ctx, g: Game) {
   c.translate(0, -waterTop);
   c.fillStyle = mix(mix(hill, HAZE, 0.4), w0, 0.45);
   ridge(c, W, waterTop, HILLS, u);
-  drawTrees(c, back, waterTop, mix(mix(tree, HAZE, 0.3), w0, 0.4), null);
-  drawTrees(c, front, waterTop, mix(tree, w1, 0.35), null);
+  drawTrees(c, back, waterTop, { dark: mix(mix(tree, HAZE, 0.3), w0, 0.4) });
+  drawTrees(c, front, waterTop, { dark: mix(tree, w1, 0.35) });
   c.restore();
   c.fillStyle = rgba(w0, 0.45);
   for (let y = waterTop + 2 * u; y < waterTop + 70 * u; y += 3.2 * u) {
@@ -257,8 +316,16 @@ function bake(c: Ctx, g: Game) {
   ridge(c, W, horizon, MOUNTAINS, u);
   c.fillStyle = mix(hill, HAZE, 0.32);
   ridge(c, W, horizon, HILLS, u);
-  drawTrees(c, back, horizon, mix(tree, HAZE, 0.3), mix(hill, HAZE, 0.25));
-  drawTrees(c, front, horizon + 1 * u, mix(tree, '#10241a', 0.12), mix(hill, '#fff6c8', 0.12));
+  drawTrees(c, back, horizon, { dark: mix(tree, HAZE, 0.4), mid: mix(tree, HAZE, 0.3) });
+  // Undergrowth along the bank, so the trees stand in a wood and not on a line.
+  c.fillStyle = mix(tree, '#0c1d14', 0.3);
+  ridge(c, W, horizon + 1 * u, (xs) => 6.5 + 2.5 * Math.sin(xs * 0.09) + 1.8 * Math.sin(xs * 0.23 + 1), u);
+  drawTrees(c, front, horizon + 1 * u, {
+    dark: mix(tree, '#0c1d14', 0.28),
+    mid: mix(tree, HAZE, 0.06),
+    light: mix(mix(tree, HAZE, 0.06), '#f2f0b4', 0.2),
+    trunk: mix('#4a3826', HAZE, 0.2),
+  });
 
   // Air between you and the shore: a haze band right where land meets water.
   const haze = c.createLinearGradient(0, horizon - 40 * u, 0, horizon + 14 * u);
