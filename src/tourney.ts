@@ -9,13 +9,15 @@ export interface Rival {
   quip: string;
   /** Share of the par weight they usually land. */
   skill: number;
+  /** How much their haul swings from one tournament to the next (± share). */
+  swing: number;
   color: string;
 }
 
 export const RIVALS: Rival[] = [
-  { name: 'Kevin', quip: 'Twelve. Brought a juice box. Talks the entire time.', skill: 0.35, color: '#5fd36a' },
-  { name: 'Grandma Pearl', quip: 'Sweet as pie. Has never once lost. Do not trust her.', skill: 0.7, color: '#f4a6c8' },
-  { name: 'Big Randy', quip: 'Matching boat, truck and sunglasses. Calls everyone "champ".', skill: 1.0, color: '#ffb347' },
+  { name: 'Kevin', quip: 'Twelve. Brought a juice box. Talks the entire time.', skill: 0.35, swing: 0.2, color: '#5fd36a' },
+  { name: 'Grandma Pearl', quip: 'Sweet as pie. Has never once lost. Do not trust her.', skill: 0.7, swing: 0.2, color: '#f4a6c8' },
+  { name: 'Big Randy', quip: 'Matching boat, truck and sunglasses. Calls everyone "champ".', skill: 1.5, swing: 0.1, color: '#ffb347' },
 ];
 
 /**
@@ -40,7 +42,7 @@ export interface RivalRun {
 export function planRivals(spot: string): RivalRun[] {
   const par = PAR[spot] ?? 22;
   return RIVALS.map((r) => {
-    const final = par * r.skill * rand(0.8, 1.2);
+    const final = par * r.skill * rand(1 - r.swing, 1 + r.swing);
     const n = Math.max(3, Math.round(final / (par / 9)));
     const weights = Array.from({ length: n }, () => rand(0.5, 1.5));
     const sum = weights.reduce((a, b) => a + b, 0);

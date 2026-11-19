@@ -6,6 +6,7 @@ import { Bubble, Game, project, RED_LEVEL, TRAVEL_DUR, TREES_AT } from './game';
 import { drawLogo } from './brand';
 import { drawHud, drawMusicButton } from './hud';
 import { spotById } from './spots';
+import { drawBackdrop, drawSky, drawVignette, drawWaves, mix } from './backdrop';
 import { clamp, easeOut, lerp, rand, roundRect, setFont, wrapText } from './util';
 
 type Ctx = CanvasRenderingContext2D;
@@ -21,7 +22,8 @@ export function render(ctx: Ctx, g: Game) {
     ctx.translate(rand(-m, m), rand(-m, m));
   }
   drawSky(ctx, g);
-  drawWater(ctx, g);
+  drawBackdrop(ctx, g);
+  drawWaves(ctx, g);
   drawSwimmers(ctx, g);
   drawScenery(ctx, g);
   drawRipples(ctx, g);
@@ -32,6 +34,7 @@ export function render(ctx: Ctx, g: Game) {
   drawAngler(ctx, g);
   drawRodAndLine(ctx, g);
   drawAim(ctx, g);
+  drawVignette(ctx, g);
   ctx.restore();
 
   if (g.title) {
@@ -57,108 +60,18 @@ export function render(ctx: Ctx, g: Game) {
 
 // ---------- Scene ----------
 
-function drawSky(ctx: Ctx, g: Game) {
-  const { W, u, horizon } = g.L;
-  const sky = ctx.createLinearGradient(0, 0, 0, horizon);
-  sky.addColorStop(0, '#5bbcf5');
-  sky.addColorStop(1, '#d5f1ff');
-  ctx.fillStyle = sky;
-  ctx.fillRect(-30, -30, W + 60, horizon + 30);
-
-  // Sun
-  const sx = W * 0.8;
-  const sy = horizon - 74 * u;
-  const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, 70 * u);
-  glow.addColorStop(0, 'rgba(255,244,190,0.9)');
-  glow.addColorStop(1, 'rgba(255,244,190,0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(sx - 70 * u, sy - 70 * u, 140 * u, 140 * u);
-  ctx.fillStyle = '#fff3b0';
-  ctx.beginPath();
-  ctx.arc(sx, sy, 24 * u, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Clouds
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  for (let i = 0; i < 3; i++) {
-    const span = W + 180 * u;
-    const x = ((i * 151 * u + g.time * (5 + i * 3) * u) % span) - 90 * u;
-    const y = horizon - (48 + i * 30) * u;
-    const s = (0.8 + i * 0.18) * u;
-    ctx.beginPath();
-    ctx.arc(x, y, 16 * s, 0, Math.PI * 2);
-    ctx.arc(x + 20 * s, y - 8 * s, 20 * s, 0, Math.PI * 2);
-    ctx.arc(x + 44 * s, y, 15 * s, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  const bank = g.spot().bank;
-  // Far hills
-  ctx.fillStyle = bank[0];
-  ctx.beginPath();
-  ctx.moveTo(-30, horizon);
-  for (let x = -30; x <= W + 30; x += 10) {
-    const y = horizon - (16 + 10 * Math.sin(x * 0.012 + 1) + 6 * Math.sin(x * 0.031)) * u;
-    ctx.lineTo(x, y);
-  }
-  ctx.lineTo(W + 30, horizon);
-  ctx.closePath();
-  ctx.fill();
-
-  // Treeline on the far bank
-  ctx.fillStyle = bank[1];
-  const n = 22;
-  for (let i = 0; i <= n; i++) {
-    const r = (8 + ((i * 7) % 5) * 1.6) * u;
-    ctx.beginPath();
-    ctx.arc((i / n) * W, horizon - r * 0.55, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.fillStyle = 'rgba(0,0,0,0.15)';
-  ctx.fillRect(-30, horizon - 3 * u, W + 60, 5 * u);
-
-  // From out on the lake, the pier is a speck on the near-left shore.
-  if (g.onBoat()) {
-    const px = W * 0.12;
-    ctx.fillStyle = '#8a623a';
-    ctx.fillRect(px, horizon - 1 * u, 26 * u, 3 * u);
-    for (const k of [0, 1, 2]) ctx.fillRect(px + k * 11 * u, horizon - 1 * u, 2 * u, 6 * u);
-  }
-}
-
-function drawWater(ctx: Ctx, g: Game) {
-  const { W, H, u, horizon } = g.L;
-  const [w0, w1, w2] = g.spot().water;
-  const water = ctx.createLinearGradient(0, horizon, 0, H);
-  water.addColorStop(0, w0);
-  water.addColorStop(0.3, w1);
-  water.addColorStop(1, w2);
-  ctx.fillStyle = water;
-  ctx.fillRect(-30, horizon + 2 * u, W + 60, H - horizon + 30);
-
-  ctx.strokeStyle = '#fff';
-  ctx.lineCap = 'round';
-  for (let i = 0; i < 28; i++) {
-    const d = (i * 0.618) % 1;
-    const lx = (((i * 0.37 + g.time * 0.018 * (1 + (i % 3))) % 1) * 2.6) - 1.3;
-    const p = project(g.L, lx, d);
-    ctx.globalAlpha = 0.16 + 0.1 * Math.sin(g.time * 2 + i);
-    ctx.lineWidth = 1.6 * u * p.s;
-    ctx.beginPath();
-    ctx.moveTo(p.x - 12 * u * p.s, p.y);
-    ctx.lineTo(p.x + 12 * u * p.s, p.y);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-}
-
 function drawShadow(
   ctx: Ctx, x: number, y: number, scale: number, dir: number, wiggle: number, alpha: number,
 ) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(dir * scale, scale * 0.55);
-  ctx.fillStyle = `rgba(8,40,62,${alpha})`;
+  // Seen through water, so the edges go soft: a wide faint pass, then the body.
+  ctx.fillStyle = `rgba(8,40,62,${alpha * 0.35})`;
+  ctx.beginPath();
+  ctx.ellipse(-4, 0, 30, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = `rgba(8,40,62,${alpha * 0.8})`;
   ctx.beginPath();
   ctx.ellipse(0, 0, 22, 9, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -322,22 +235,35 @@ function drawScenery(ctx: Ctx, g: Game) {
       const s = u * p.s * k;
       const w = 12 * s;
       const h = (26 + (i % 3) * 14) * s;
-      ctx.fillStyle = 'rgba(10,40,35,0.3)';
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y + 2 * s, w * 1.6, w * 0.5, 0, 0, Math.PI * 2);
+      const stump = (dir: number) => {
+        ctx.beginPath();
+        ctx.moveTo(p.x - w, p.y);
+        ctx.lineTo(p.x - w * 0.8, p.y - dir * h);
+        ctx.lineTo(p.x - w * 0.2, p.y - dir * (h + 6 * s));
+        ctx.lineTo(p.x + w * 0.3, p.y - dir * (h - 2 * s));
+        ctx.lineTo(p.x + w * 0.8, p.y - dir * (h + 3 * s));
+        ctx.lineTo(p.x + w, p.y);
+        ctx.closePath();
+      };
+      // Its reflection, squashed and wobbling
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.scale(1 + Math.sin(g.time * 2 + i) * 0.03, 0.7);
+      ctx.translate(-p.x, -p.y);
+      ctx.fillStyle = 'rgba(30,25,15,0.28)';
+      stump(-1);
       ctx.fill();
-      ctx.fillStyle = '#5e4630';
-      ctx.beginPath();
-      ctx.moveTo(p.x - w, p.y);
-      ctx.lineTo(p.x - w * 0.8, p.y - h);
-      ctx.lineTo(p.x - w * 0.2, p.y - h - 6 * s);
-      ctx.lineTo(p.x + w * 0.3, p.y - h + 2 * s);
-      ctx.lineTo(p.x + w * 0.8, p.y - h - 3 * s);
-      ctx.lineTo(p.x + w, p.y);
-      ctx.closePath();
+      ctx.restore();
+      // Lit on the sun side, dark on the other
+      const bark = ctx.createLinearGradient(p.x - w, 0, p.x + w, 0);
+      bark.addColorStop(0, '#3e2c1c');
+      bark.addColorStop(0.55, '#5e4630');
+      bark.addColorStop(1, '#8a6a48');
+      ctx.fillStyle = bark;
+      stump(1);
       ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      ctx.fillRect(p.x - w * 0.6, p.y - h + 4 * s, w * 0.25, h - 4 * s);
+      ctx.fillStyle = 'rgba(20,30,25,0.35)';
+      ctx.fillRect(p.x - w, p.y - 4 * s, w * 2, 4 * s);
       // The odd dead branch
       if (i % 2 === 0) {
         ctx.strokeStyle = '#5e4630';
@@ -382,10 +308,18 @@ function bobberShape(ctx: Ctx, x: number, y: number, r: number) {
   ctx.beginPath();
   ctx.arc(x, y, r, Math.PI, 0);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(20,30,40,0.6)';
-  ctx.lineWidth = Math.max(1, r * 0.18);
+  // Round it off: shadow on the far-from-sun side, a glint near the sun.
+  const shade = ctx.createRadialGradient(x + r * 0.35, y - r * 0.4, r * 0.1, x, y, r * 1.05);
+  shade.addColorStop(0, 'rgba(255,255,255,0.75)');
+  shade.addColorStop(0.3, 'rgba(255,255,255,0)');
+  shade.addColorStop(0.75, 'rgba(0,0,0,0.05)');
+  shade.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = shade;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(20,30,40,0.5)';
+  ctx.lineWidth = Math.max(1, r * 0.14);
   ctx.stroke();
 }
 
@@ -409,6 +343,15 @@ function drawBobber(ctx: Ctx, g: Game) {
   ctx.clip();
   bobberShape(ctx, b.x, y, b.r);
   ctx.restore();
+
+  // A wobbly red reflection just under the waterline.
+  const wl = b.y + b.r * 0.35;
+  ctx.globalAlpha = 0.35 * (1 - dip);
+  ctx.fillStyle = '#e8402f';
+  ctx.beginPath();
+  ctx.ellipse(b.x + Math.sin(g.time * 4) * 0.6 * b.r * 0.2, wl + b.r * 0.7, b.r * 0.8, b.r * 0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
 
   ctx.strokeStyle = 'rgba(255,255,255,0.7)';
   ctx.lineWidth = 1.4 * u * b.s;
@@ -460,48 +403,122 @@ function drawPier(ctx: Ctx, g: Game) {
   const topW = W * 0.36;
   const botW = W * 0.7;
   const bottom = H + 30;
+  // k runs 0 at the far end to 1 at your feet, spaced like real boards in perspective.
+  const yAt = (k: number) => pierTop + (bottom - pierTop) * Math.pow(k, 1.5);
+  const halfAt = (y: number) => lerp(topW, botW, (y - pierTop) / (bottom - pierTop)) / 2;
 
-  // Shadow on the water
-  ctx.fillStyle = 'rgba(8,45,70,0.28)';
+  // Shadow on the water, offset toward you because the sun is beyond the pier
+  ctx.fillStyle = 'rgba(8,45,70,0.3)';
   ctx.beginPath();
-  ctx.moveTo(cx - topW / 2 - 8 * u, pierTop - 8 * u);
-  ctx.lineTo(cx + topW / 2 + 8 * u, pierTop - 8 * u);
-  ctx.lineTo(cx + botW / 2 + 16 * u, bottom);
-  ctx.lineTo(cx - botW / 2 - 16 * u, bottom);
+  ctx.moveTo(cx - topW / 2 - 10 * u, pierTop + 4 * u);
+  ctx.lineTo(cx + topW / 2 + 2 * u, pierTop + 4 * u);
+  ctx.lineTo(cx + botW / 2 + 8 * u, bottom);
+  ctx.lineTo(cx - botW / 2 - 30 * u, bottom);
   ctx.closePath();
   ctx.fill();
 
-  // End posts
-  ctx.fillStyle = '#6b4a2a';
-  for (const s of [-1, 1]) {
-    roundRect(ctx, cx + (s * topW) / 2 - 6 * u, pierTop - 16 * u, 12 * u, 40 * u, 3 * u);
-    ctx.fill();
+  // Pilings: posts sunk into the lake along both sides, with ripples and reflections
+  for (const k of [0, 0.3, 0.55, 0.78]) {
+    const y = yAt(k);
+    const pw = lerp(7, 15, k) * u;
+    const len = lerp(20, 46, k) * u;
+    for (const side of [-1, 1]) {
+      const x = cx + side * (halfAt(y) + pw * 0.2);
+      const wy = y + len;
+      ctx.fillStyle = 'rgba(40,28,15,0.3)';
+      ctx.fillRect(x - pw / 2, wy, pw, len * 0.5);
+      const post = ctx.createLinearGradient(x - pw / 2, 0, x + pw / 2, 0);
+      post.addColorStop(0, '#3a2816');
+      post.addColorStop(0.6, '#5f4226');
+      post.addColorStop(1, '#7c5a36');
+      ctx.fillStyle = post;
+      ctx.fillRect(x - pw / 2, y, pw, len);
+      // Wet, darker band at the waterline
+      ctx.fillStyle = 'rgba(20,40,30,0.45)';
+      ctx.fillRect(x - pw / 2, wy - 5 * u * lerp(0.5, 1, k), pw, 5 * u * lerp(0.5, 1, k));
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 1.2 * u;
+      ctx.beginPath();
+      ctx.ellipse(x, wy, pw * (0.9 + 0.12 * Math.sin(g.time * 2 + k * 9 + side)), pw * 0.28, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
-  // Deck
-  ctx.fillStyle = '#c69a62';
+  // Side beams: the deck has thickness, and you see the outer face of each
+  for (const side of [-1, 1]) {
+    ctx.fillStyle = side < 0 ? '#5e4126' : '#6e4d2d';
+    ctx.beginPath();
+    ctx.moveTo(cx + (side * topW) / 2, pierTop);
+    ctx.lineTo(cx + (side * botW) / 2, bottom);
+    ctx.lineTo(cx + side * (botW / 2 + 2 * u), bottom + 22 * u);
+    ctx.lineTo(cx + side * (topW / 2 + 1 * u), pierTop + 7 * u);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // Far end: the beam facing you, in shadow
+  ctx.fillStyle = '#4e3620';
+  ctx.fillRect(cx - topW / 2, pierTop, topW, 7 * u);
+
+  // Deck: individual boards, each a slightly different shade
+  ctx.save();
   ctx.beginPath();
   ctx.moveTo(cx - topW / 2, pierTop);
   ctx.lineTo(cx + topW / 2, pierTop);
   ctx.lineTo(cx + botW / 2, bottom);
   ctx.lineTo(cx - botW / 2, bottom);
   ctx.closePath();
-  ctx.fill();
-
-  // Planks
-  ctx.save();
   ctx.clip();
-  ctx.strokeStyle = 'rgba(95,62,30,0.45)';
-  for (let k = 1; k < 12; k++) {
-    const y = pierTop + (bottom - pierTop) * Math.pow(k / 12, 1.5);
-    ctx.lineWidth = (1 + k * 0.15) * u;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(W, y);
-    ctx.stroke();
+  const BOARDS = 14;
+  const tones = ['#c99d64', '#bf925a', '#d0a66e', '#c3955c', '#cba068'];
+  for (let k = 0; k < BOARDS; k++) {
+    const y0 = yAt(k / BOARDS);
+    const y1 = yAt((k + 1) / BOARDS);
+    ctx.fillStyle = tones[(k * 3) % tones.length];
+    ctx.fillRect(0, y0, W, y1 - y0 + 1);
+    // Grain
+    ctx.strokeStyle = 'rgba(110,72,36,0.18)';
+    ctx.lineWidth = 0.8 * u;
+    for (let j = 1; j < 3; j++) {
+      const gy = lerp(y0, y1, j / 3);
+      const hw = halfAt(gy);
+      ctx.beginPath();
+      ctx.moveTo(cx - hw + ((k * 37 + j * 13) % 20) * u, gy);
+      ctx.lineTo(cx + hw * (0.2 + ((k * 7 + j) % 5) * 0.15), gy + 0.5 * u);
+      ctx.stroke();
+    }
+    // Gap between boards: dark slit with a lit edge on the next board
+    const gap = lerp(1, 3, k / BOARDS) * u;
+    ctx.fillStyle = 'rgba(60,36,14,0.6)';
+    ctx.fillRect(0, y1 - gap / 2, W, gap);
+    ctx.fillStyle = 'rgba(255,236,200,0.25)';
+    ctx.fillRect(0, y1 + gap / 2, W, gap * 0.5);
+    // Nails over the two joists
+    ctx.fillStyle = 'rgba(50,40,35,0.55)';
+    for (const jx of [-0.72, 0.72]) {
+      for (const dy of [0.3, 0.7]) {
+        const ny = lerp(y0, y1, dy);
+        ctx.beginPath();
+        ctx.arc(cx + jx * halfAt(ny), ny, lerp(0.6, 1.6, k / BOARDS) * u, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
+  // Light: hazier far away, darker right under you, sunnier on the right
+  const depth = ctx.createLinearGradient(0, pierTop, 0, bottom);
+  depth.addColorStop(0, 'rgba(220,237,247,0.3)');
+  depth.addColorStop(0.35, 'rgba(255,240,210,0.05)');
+  depth.addColorStop(1, 'rgba(40,20,5,0.3)');
+  ctx.fillStyle = depth;
+  ctx.fillRect(0, pierTop, W, bottom - pierTop);
+  const side = ctx.createLinearGradient(cx - botW / 2, 0, cx + botW / 2, 0);
+  side.addColorStop(0, 'rgba(40,20,5,0.22)');
+  side.addColorStop(0.5, 'rgba(40,20,5,0)');
+  side.addColorStop(1, 'rgba(255,240,200,0.12)');
+  ctx.fillStyle = side;
+  ctx.fillRect(0, pierTop, W, bottom - pierTop);
   ctx.restore();
 
+  // Edge boards along the rims
   ctx.strokeStyle = '#8a623a';
   ctx.lineWidth = 3 * u;
   ctx.beginPath();
@@ -510,8 +527,23 @@ function drawPier(ctx: Ctx, g: Game) {
   ctx.moveTo(cx + topW / 2, pierTop);
   ctx.lineTo(cx + botW / 2, bottom);
   ctx.stroke();
-  ctx.fillStyle = '#9a7044';
-  ctx.fillRect(cx - topW / 2, pierTop - 2 * u, topW, 6 * u);
+  ctx.fillStyle = '#a77b4c';
+  ctx.fillRect(cx - topW / 2, pierTop - 2 * u, topW, 4 * u);
+
+  // End posts stand up out of the deck at the far corners
+  for (const s of [-1, 1]) {
+    const x = cx + (s * topW) / 2 - 6 * u;
+    const post = ctx.createLinearGradient(x, 0, x + 12 * u, 0);
+    post.addColorStop(0, '#4a321c');
+    post.addColorStop(1, '#7c5a36');
+    ctx.fillStyle = post;
+    roundRect(ctx, x, pierTop - 18 * u, 12 * u, 24 * u, 3 * u);
+    ctx.fill();
+    ctx.fillStyle = '#8f6a42';
+    ctx.beginPath();
+    ctx.ellipse(x + 6 * u, pierTop - 18 * u + 2 * u, 6 * u, 2.4 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 /** Outline of the bow, seen from behind the angler. `inset` shrinks it toward the middle. */
@@ -583,6 +615,14 @@ function drawBoat(ctx: Ctx, g: Game) {
   ctx.fill();
   ctx.save();
   ctx.clip();
+  // Curved hull: shadowed flank on the left, sun catching the right
+  const hull = ctx.createLinearGradient(cx - halfW, 0, cx + halfW, 0);
+  hull.addColorStop(0, 'rgba(40,0,10,0.5)');
+  hull.addColorStop(0.45, 'rgba(40,0,10,0.05)');
+  hull.addColorStop(0.8, 'rgba(255,200,200,0.18)');
+  hull.addColorStop(1, 'rgba(40,0,10,0.25)');
+  ctx.fillStyle = hull;
+  ctx.fillRect(cx - halfW, tipY, halfW * 2, bottom - tipY);
   for (let i = 0; i < 70; i++) {
     const x = cx + (((i * 97) % 200) / 100 - 1) * halfW;
     const y = tipY + ((i * 53) % 100) / 100 * (H - tipY);
@@ -599,11 +639,20 @@ function drawBoat(ctx: Ctx, g: Game) {
   ctx.fillStyle = '#f2f2ee';
   bowPath(ctx, cx, tipY, bottom, halfW, 9 * u);
   ctx.fill();
-  ctx.fillStyle = '#56606b';
+  const carpet = ctx.createLinearGradient(0, tipY, 0, H);
+  carpet.addColorStop(0, '#6c7682');
+  carpet.addColorStop(1, '#3f4750');
+  ctx.fillStyle = carpet;
   bowPath(ctx, cx, tipY, bottom, halfW, 15 * u);
   ctx.fill();
   ctx.save();
   ctx.clip();
+  // The gunwale throws a shadow onto the deck along the left side
+  const lip = ctx.createLinearGradient(cx - halfW, 0, cx - halfW + 40 * u, 0);
+  lip.addColorStop(0, 'rgba(0,0,0,0.35)');
+  lip.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = lip;
+  ctx.fillRect(cx - halfW, tipY, 40 * u, H - tipY);
   ctx.strokeStyle = 'rgba(255,255,255,0.05)';
   ctx.lineWidth = 2 * u;
   for (let x = -W; x < W * 2; x += 10 * u) {
@@ -645,38 +694,66 @@ function drawAngler(ctx: Ctx, g: Game) {
   ctx.translate(anglerX, feetY + g.bob());
   ctx.scale(u, u);
 
-  ctx.fillStyle = 'rgba(60,35,10,0.3)';
+  // Sun is out beyond the water, so the shadow stretches back toward you.
+  ctx.save();
+  ctx.transform(1, 0, -0.35, 0.45, 0, 0);
+  ctx.fillStyle = 'rgba(40,22,6,0.22)';
   ctx.beginPath();
-  ctx.ellipse(0, 2, 30, 8, 0, 0, Math.PI * 2);
+  ctx.ellipse(-2, 70, 20, 70, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  const contact = ctx.createRadialGradient(0, 2, 2, 0, 2, 30);
+  contact.addColorStop(0, 'rgba(40,22,6,0.45)');
+  contact.addColorStop(1, 'rgba(40,22,6,0)');
+  ctx.fillStyle = contact;
+  ctx.beginPath();
+  ctx.ellipse(0, 2, 30, 9, 0, 0, Math.PI * 2);
   ctx.fill();
 
+  // Every part is lit from the right: dark on the left, highlight on the right.
+  const lit = (c: string, x0: number, x1: number) => {
+    const gr = ctx.createLinearGradient(x0, 0, x1, 0);
+    gr.addColorStop(0, mix(c, '#1a0e05', 0.38));
+    gr.addColorStop(0.6, c);
+    gr.addColorStop(1, mix(c, '#fff4dc', 0.2));
+    return gr;
+  };
+
   // Boots and legs
-  ctx.fillStyle = '#3a2a1c';
+  ctx.fillStyle = lit('#3a2a1c', -16, 16);
   roundRect(ctx, -16, -12, 14, 14, 4);
   ctx.fill();
   roundRect(ctx, 2, -12, 14, 14, 4);
   ctx.fill();
-  ctx.fillStyle = '#3f5f94';
+  ctx.fillStyle = lit('#3f5f94', -16, -1);
   roundRect(ctx, -15, -50, 13, 42, 4);
   ctx.fill();
+  ctx.fillStyle = lit('#3f5f94', 1, 16);
   roundRect(ctx, 2, -50, 13, 42, 4);
   ctx.fill();
 
   // Left arm, torso, vest pockets
-  ctx.fillStyle = '#d8b24a';
+  ctx.fillStyle = lit('#d8b24a', -27, -17);
   roundRect(ctx, -27, -92, 10, 40, 5);
   ctx.fill();
-  ctx.fillStyle = '#c9542e';
+  ctx.fillStyle = lit('#c9542e', -20, 20);
   roundRect(ctx, -20, -98, 40, 54, 10);
+  ctx.fill();
+  // The vest shadows the shirt under the arms, and the belt line
+  ctx.fillStyle = 'rgba(30,10,0,0.18)';
+  roundRect(ctx, -20, -52, 40, 8, 4);
   ctx.fill();
   ctx.fillStyle = '#a84322';
   roundRect(ctx, -14, -66, 11, 12, 2);
   ctx.fill();
   roundRect(ctx, 3, -66, 11, 12, 2);
   ctx.fill();
+  ctx.fillStyle = 'rgba(255,230,200,0.25)';
+  ctx.fillRect(-14, -66, 11, 2);
+  ctx.fillRect(3, -66, 11, 2);
 
   // Right arm reaching for the rod
-  ctx.strokeStyle = '#d8b24a';
+  ctx.strokeStyle = lit('#d8b24a', 12, 30);
   ctx.lineWidth = 10;
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -685,10 +762,19 @@ function drawAngler(ctx: Ctx, g: Game) {
   ctx.lineTo(20, -76);
   ctx.stroke();
 
-  // Head and bucket hat
-  ctx.fillStyle = '#eec39a';
+  // Head: a ball, not a disc. The back of it faces you, mostly in shade.
+  const head = ctx.createRadialGradient(5, -116, 2, 0, -110, 14);
+  head.addColorStop(0, '#f7d6b4');
+  head.addColorStop(0.6, '#e6b48a');
+  head.addColorStop(1, '#b98760');
+  ctx.fillStyle = head;
   ctx.beginPath();
   ctx.arc(0, -110, 13, 0, Math.PI * 2);
+  ctx.fill();
+  // Neck shadow under the head
+  ctx.fillStyle = 'rgba(60,20,0,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(0, -97, 10, 3, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.translate(0, -110);
   drawHat(ctx, g.save.hat, g.time);
