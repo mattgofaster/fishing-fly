@@ -6,9 +6,14 @@ type Ctx = CanvasRenderingContext2D;
 
 const BASS = CATALOG.find((c) => c.id === 'bass')!.look;
 
-/** "FISHING FLY" in chunky, wobbling letters. `size` is the cap height of FISHING. */
+/** "HOOK, LINE & SINKER" in chunky, wobbling letters. `size` sets the overall scale. */
 export function drawLogo(ctx: Ctx, cx: number, cy: number, size: number, t: number) {
-  const word = (text: string, y: number, s: number, fill: string, phase: number) => {
+  const maxW = size * 5.6;
+  const word = (text: string, y: number, s0: number, fill: string, phase: number) => {
+    ctx.font = `900 ${s0}px ${FONT}`;
+    // Shrink to fit if the line would run too wide
+    const raw = [...text].reduce((a, ch) => a + ctx.measureText(ch).width, 0) * 1.02;
+    const s = raw > maxW ? (s0 * maxW) / raw : s0;
     ctx.font = `900 ${s}px ${FONT}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
@@ -34,8 +39,8 @@ export function drawLogo(ctx: Ctx, cx: number, cy: number, size: number, t: numb
       x += widths[i] + spacing;
     });
   };
-  word('FISHING', cy - size * 0.55, size, '#ffffff', 0);
-  word('FLY', cy + size * 0.6, size * 1.3, '#ffd84a', 2);
+  word('HOOK, LINE &', cy - size * 0.6, size * 0.7, '#ffffff', 0);
+  word('SINKER', cy + size * 0.45, size * 1.25, '#ffd84a', 2);
 }
 
 /** Sky, far bank and lake, split at `horizon`. */

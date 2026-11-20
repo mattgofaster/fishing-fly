@@ -1,9 +1,9 @@
 @echo off
-title Fishing Fly
+title Hook, Line ^& Sinker
 cd /d "%~dp0"
 if not exist node_modules call npm install
 echo.
-echo  Fishing Fly is starting. Your browser will open by itself.
+echo  Hook, Line ^& Sinker is starting. Your browser will open by itself.
 echo  On your iPhone: use the "Network" address below (same Wi-Fi).
 echo  Keep this window open while you play. Close it to stop.
 echo.

@@ -1,7 +1,7 @@
 // Offline support. After one visit with a connection, the whole game is cached
 // on the phone and plays with none. New versions are picked up on the next
 // launch with a connection.
-const CACHE = 'fishing-fly-v1';
+const CACHE = 'fishing-fly-v2';
 
 /** The page plus every script and stylesheet it references. */
 async function precache() {

@@ -1,6 +1,6 @@
 {
-  "name": "Fishing Fly",
-  "short_name": "Fishing Fly",
+  "name": "Hook, Line & Sinker",
+  "short_name": "Hook Line Sinker",
   "description": "A fishing game. Allegedly.",
   "start_url": "./",
   "scope": "./",
