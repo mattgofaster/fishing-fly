@@ -961,6 +961,10 @@ function drawBuddy(ctx: Ctx, g: Game) {
   if (inScene) {
     const head = earlHead(g);
     y0 = head.y - 14 * u - h;
+    // A bubble wide enough to reach your angler floats up over his hat instead,
+    // with a longer tail down to Earl.
+    const { anglerX, feetY } = g.L;
+    if (x0 + w > anglerX - 34 * u) y0 = Math.min(y0, feetY - 150 * u + g.bob() - h);
     ctx.fillStyle = '#fff';
     roundRect(ctx, x0, y0, w, h, 12 * u);
     ctx.fill();
