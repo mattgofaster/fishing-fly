@@ -930,15 +930,13 @@ function bubbleAlpha(b: Bubble) {
   return clamp(Math.min(b.t / 0.15, (b.dur - b.t) / 0.3), 0, 1);
 }
 
-/** Earl's speech bubble. Over his head when the lake is clear; up top during
- *  fights, results and menus, where it can't cover anything that matters. */
+/** Earl's speech bubble. Over his head whenever he's in view; up top over
+ *  menus, the boat ride and the catch card, which all cover him. */
 function drawBuddy(ctx: Ctx, g: Game) {
   const b = g.buddy;
   if (!b) return;
   const { W, u, safeTop } = g.L;
-  const inScene =
-    g.screen === 'none' && !g.travel &&
-    (g.phase === 'idle' || g.phase === 'cast' || g.phase === 'wait' || g.phase === 'bite');
+  const inScene = g.screen === 'none' && !g.travel && g.phase !== 'result';
 
   setFont(ctx, 15 * u, '700');
   const lh = 19 * u;
@@ -964,7 +962,15 @@ function drawBuddy(ctx: Ctx, g: Game) {
     // A bubble wide enough to reach your angler floats up over his hat instead,
     // with a longer tail down to Earl.
     const { anglerX, feetY } = g.L;
+    const low = y0;
     if (x0 + w > anglerX - 34 * u) y0 = Math.min(y0, feetY - 150 * u + g.bob() - h);
+    // Mid-fight, the fish matters more than your hat: if it's swimming where
+    // the raised bubble would be, keep the bubble down by Earl.
+    if (g.phase === 'fight' && y0 !== low) {
+      const f = project(g.L, g.fish.lx, g.fish.d);
+      const m = 30 * u;
+      if (f.x > x0 - m && f.x < x0 + w + m && f.y > y0 - m && f.y < y0 + h + m) y0 = low;
+    }
     ctx.fillStyle = '#fff';
     roundRect(ctx, x0, y0, w, h, 12 * u);
     ctx.fill();
