@@ -8,6 +8,7 @@ import { BOAT, spotById } from './spots';
 import {
   BEST_BONUS, COUNTDOWN, planRivals, PRIZES, RivalRun, TOURNEY_LINES, TOURNEY_TIME,
 } from './tourney';
+import { latestUpdate, markUpdateSeen, seenUpdate } from './updates';
 import { clamp, easeOut, lerp, pick, rand } from './util';
 
 export type Phase = 'idle' | 'cast' | 'wait' | 'bite' | 'fight' | 'result' | 'fail';
@@ -87,7 +88,7 @@ export interface Hit {
   fn: () => void;
 }
 
-export type Screen = 'none' | 'shop' | 'journal' | 'map' | 'quest' | 'tourney' | 'tourneyEnd' | 'trainDone';
+export type Screen = 'none' | 'shop' | 'journal' | 'map' | 'quest' | 'tourney' | 'tourneyEnd' | 'trainDone' | 'updates';
 
 /** Practice run: one guided catch. Nothing can go wrong and nothing counts. */
 export interface Training {
@@ -266,6 +267,10 @@ export class Game {
     this.title = false;
     sfx.intro();
     this.questAt = this.time + 8;
+    // Brand-new players have nothing to compare against, so they skip the
+    // "what's new" card; everyone else sees it once per update.
+    const news = latestUpdate();
+    if (news && this.save.caught === 0 && seenUpdate() === null) markUpdateSeen();
     if (train) {
       this.startTraining();
       return;
@@ -274,6 +279,16 @@ export class Game {
       ? BUDDY.arrive[this.save.spot]
       : this.save.caught === 0 ? BUDDY.helloNew : BUDDY.hello;
     this.say(lines, 7);
+    if (news && seenUpdate() !== news.id) {
+      this.screen = 'updates';
+      this.screenT = 0;
+    }
+  }
+
+  /** Dismiss the "what's new" card for good (until the next update). */
+  closeUpdates() {
+    markUpdateSeen();
+    this.closeScreen();
   }
 
   // ---------- Training ----------
@@ -596,6 +611,7 @@ export class Game {
       tourney: BUDDY.tourneyOpen,
       tourneyEnd: BUDDY.idle,
       trainDone: BUDDY.train.done,
+      updates: BUDDY.idle,
       none: BUDDY.idle,
     }[screen];
     this.say(lines, screen === 'quest' ? 6 : 4);

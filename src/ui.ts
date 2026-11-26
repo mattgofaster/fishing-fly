@@ -3,6 +3,7 @@ import { drawCatch } from './fishart';
 import { Game } from './game';
 import { drawHat, HATS, LURES, UpgradeKind, UPGRADES } from './gear';
 import { questDetail } from './quests';
+import { latestUpdate } from './updates';
 import { BOAT, Spot, spotById, SPOTS } from './spots';
 import { BEST_BONUS, PRIZES, RIVALS } from './tourney';
 import { clamp, easeOut, roundRect, setFont, wrapText } from './util';
@@ -143,6 +144,10 @@ export function drawScreens(ctx: Ctx, g: Game) {
     drawTrainDone(ctx, g);
     return;
   }
+  if (g.screen === 'updates') {
+    drawUpdates(ctx, g);
+    return;
+  }
   const { W, H, u, safeTop, safeBottom } = g.L;
   const a = easeOut(clamp(g.screenT / 0.25, 0, 1));
 
@@ -173,6 +178,7 @@ export function drawScreens(ctx: Ctx, g: Game) {
     tourney: 'BASS-ISH MASTERS',
     tourneyEnd: 'RESULTS',
     quest: '',
+    updates: '',
     none: '',
   }[g.screen];
   ctx.fillText(title, x + 18 * u, y + 30 * u);
@@ -199,6 +205,64 @@ export function drawScreens(ctx: Ctx, g: Game) {
   else if (g.screen === 'tourney') drawTourney(ctx, g, x, y, w, h);
   else if (g.screen === 'tourneyEnd') drawTourneyEnd(ctx, g, x, y, w, h);
   else drawJournal(ctx, g, x, y, w, h);
+}
+
+// ---------- What's new ----------
+
+/** "NEW UPDATES" card, shown once after the game has been updated. */
+function drawUpdates(ctx: Ctx, g: Game) {
+  const news = latestUpdate();
+  const { W, H, u } = g.L;
+  const a = easeOut(clamp(g.screenT / 0.2, 0, 1));
+  ctx.fillStyle = `rgba(8,20,32,${0.6 * a})`;
+  ctx.fillRect(0, 0, W, H);
+  hit(g, 0, 0, W, H, () => g.closeUpdates());
+  if (!news) return;
+
+  const w = Math.min(W - 36 * u, 330 * u);
+  const textW = w - 44 * u - 18 * u;
+  // Measure the notes first so the card grows to fit them.
+  setFont(ctx, 13.5 * u, '700');
+  const notes = news.notes.map((n) => wrapLines(ctx, n, textW));
+  const notesH = notes.reduce((sum, lines) => sum + lines.length * 18 * u + 12 * u, 0);
+  const h = 104 * u + notesH + 80 * u;
+  const x0 = W / 2 - w / 2;
+  const y0 = H / 2 - h / 2 + (1 - a) * 60 * u;
+  const cx = W / 2;
+  ctx.fillStyle = PAPER;
+  roundRect(ctx, x0, y0, w, h, 22 * u);
+  ctx.fill();
+  hit(g, x0, y0, w, h, () => {});
+
+  ctx.fillStyle = '#ff8a3d';
+  roundRect(ctx, cx - 72 * u, y0 + 18 * u, 144 * u, 28 * u, 14 * u);
+  ctx.fill();
+  setFont(ctx, 13 * u, '900');
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('NEW UPDATES', cx, y0 + 32.5 * u);
+
+  setFont(ctx, 21 * u, '900');
+  ctx.fillStyle = INK;
+  ctx.fillText(news.title, cx, y0 + 72 * u, w - 32 * u);
+
+  const lx = x0 + 22 * u;
+  let ty = y0 + 108 * u;
+  for (const lines of notes) {
+    ctx.fillStyle = BLUE;
+    ctx.beginPath();
+    ctx.arc(lx + 4 * u, ty, 4 * u, 0, Math.PI * 2);
+    ctx.fill();
+    setFont(ctx, 13.5 * u, '700');
+    ctx.fillStyle = INK;
+    ctx.textAlign = 'left';
+    lines.forEach((line, i) => ctx.fillText(line, lx + 18 * u, ty + i * 18 * u));
+    ty += lines.length * 18 * u + 12 * u;
+  }
+
+  const bw = 160 * u;
+  button(ctx, g, cx - bw / 2, y0 + h - 64 * u, bw, 44 * u, 'NICE!', 'buy', () => g.closeUpdates());
 }
 
 // ---------- Quest card ----------
