@@ -4,6 +4,7 @@ import { drawHat } from './gear';
 import { drawCoin, drawNav, drawScreens } from './ui';
 import { Bubble, Game, project, RED_LEVEL, TRAVEL_DUR, TREES_AT } from './game';
 import { drawLogo } from './brand';
+import { drawEarl, earlHead } from './earl';
 import { drawHud, drawMusicButton } from './hud';
 import { spotById } from './spots';
 import { drawBackdrop, drawSky, drawVignette, drawWaves, mix } from './backdrop';
@@ -31,6 +32,7 @@ export function render(ctx: Ctx, g: Game) {
   drawParticles(ctx, g);
   if (g.onBoat()) drawBoat(ctx, g);
   else drawPier(ctx, g);
+  drawEarl(ctx, g);
   drawAngler(ctx, g);
   drawRodAndLine(ctx, g);
   drawAim(ctx, g);
@@ -928,106 +930,70 @@ function bubbleAlpha(b: Bubble) {
   return clamp(Math.min(b.t / 0.15, (b.dur - b.t) / 0.3), 0, 1);
 }
 
+/** Earl's speech bubble. Over his head when the lake is clear; up top during
+ *  fights, results and menus, where it can't cover anything that matters. */
 function drawBuddy(ctx: Ctx, g: Game) {
-  const { W, u, safeTop } = g.L;
-  const r = 26 * u;
-  const cx = 12 * u + r;
-  const cy = safeTop + 10 * u + r;
-
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(u, u);
-  ctx.beginPath();
-  ctx.arc(0, 0, 26, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffe2a8';
-  ctx.fill();
-  ctx.save();
-  ctx.clip();
-  ctx.fillStyle = '#4f7a45';
-  ctx.beginPath();
-  ctx.ellipse(0, 30, 24, 14, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Shirt shoulders catch the light on the right
-  const shirt = ctx.createLinearGradient(-24, 0, 24, 0);
-  shirt.addColorStop(0, 'rgba(0,0,0,0.3)');
-  shirt.addColorStop(1, 'rgba(255,255,220,0.12)');
-  ctx.fillStyle = shirt;
-  ctx.beginPath();
-  ctx.ellipse(0, 30, 24, 14, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Shadow the head casts on the shirt
-  ctx.fillStyle = 'rgba(30,20,10,0.25)';
-  ctx.beginPath();
-  ctx.ellipse(-2, 17, 11, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  const face = ctx.createRadialGradient(5, -2, 2, 0, 2, 15);
-  face.addColorStop(0, '#f3c99e');
-  face.addColorStop(0.65, '#dca77a');
-  face.addColorStop(1, '#a8754f');
-  ctx.fillStyle = face;
-  ctx.beginPath();
-  ctx.arc(0, 2, 14, 0, Math.PI * 2);
-  ctx.fill();
-  const cap = ctx.createLinearGradient(-14, -17, 14, -3);
-  cap.addColorStop(0, '#8e2318');
-  cap.addColorStop(0.6, '#c0392b');
-  cap.addColorStop(1, '#e05a48');
-  ctx.fillStyle = cap;
-  ctx.beginPath();
-  ctx.arc(0, -3, 14.5, Math.PI, 0);
-  ctx.fill();
-  // The brim shades his forehead
-  ctx.fillStyle = 'rgba(60,20,10,0.3)';
-  ctx.fillRect(-13, -2, 26, 3);
-  ctx.fillStyle = '#9c2b20';
-  roundRect(ctx, -3, -6, 22, 5, 2.5);
-  ctx.fill();
-  ctx.fillStyle = '#1c1c24';
-  roundRect(ctx, -11, 0, 9, 6, 2);
-  ctx.fill();
-  roundRect(ctx, 2, 0, 9, 6, 2);
-  ctx.fill();
-  ctx.fillRect(-3, 1.5, 6, 1.5);
-  // Glint on the sunglasses
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.fillRect(6, 1, 3, 1.5);
-  ctx.fillRect(-7, 1, 3, 1.5);
-  ctx.fillStyle = '#6b4a2a';
-  ctx.beginPath();
-  ctx.ellipse(0, 11, 8, 3.2, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = '#fff';
-  ctx.stroke();
-  ctx.restore();
-
   const b = g.buddy;
   if (!b) return;
-  const x0 = cx + r + 12 * u;
-  const maxW = W - x0 - 56 * u;
+  const { W, u, safeTop } = g.L;
+  const inScene =
+    g.screen === 'none' && !g.travel &&
+    (g.phase === 'idle' || g.phase === 'cast' || g.phase === 'wait' || g.phase === 'bite');
+
   setFont(ctx, 15 * u, '700');
-  const lines = wrapText(ctx, b.text, maxW - 24 * u);
+  const lh = 19 * u;
+  let x0: number;
+  let lines: string[];
+  if (inScene) {
+    const head = earlHead(g);
+    x0 = Math.max(8 * u, head.x - 30 * u);
+    lines = wrapText(ctx, b.text, Math.min(W - x0 - 14 * u, 270 * u) - 24 * u);
+  } else {
+    x0 = 12 * u;
+    lines = wrapText(ctx, b.text, W - x0 - 56 * u - 24 * u);
+  }
   const textW = Math.max(...lines.map((l) => ctx.measureText(l).width));
   const w = textW + 24 * u;
-  const lh = 19 * u;
   const h = lines.length * lh + 16 * u;
-  const y0 = cy - Math.min(h / 2, r);
 
   ctx.globalAlpha = bubbleAlpha(b);
+  let y0: number;
+  if (inScene) {
+    const head = earlHead(g);
+    y0 = head.y - 14 * u - h;
+    ctx.fillStyle = '#fff';
+    roundRect(ctx, x0, y0, w, h, 12 * u);
+    ctx.fill();
+    // Tail down to Earl
+    const tx = clamp(head.x, x0 + 14 * u, x0 + w - 14 * u);
+    ctx.beginPath();
+    ctx.moveTo(tx - 7 * u, y0 + h - 1);
+    ctx.lineTo(head.x - 2 * u, head.y - 3 * u);
+    ctx.lineTo(tx + 7 * u, y0 + h - 1);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    y0 = safeTop + 16 * u;
+    ctx.fillStyle = '#fff';
+    roundRect(ctx, x0, y0, w, h, 12 * u);
+    ctx.fill();
+  }
+  // Name tag, so you know who's talking
+  setFont(ctx, 10 * u, '900');
+  const tagW = ctx.measureText('EARL').width + 12 * u;
+  ctx.fillStyle = '#c0392b';
+  roundRect(ctx, x0 + 10 * u, y0 - 8 * u, tagW, 16 * u, 8 * u);
+  ctx.fill();
   ctx.fillStyle = '#fff';
-  roundRect(ctx, x0, y0, w, h, 12 * u);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(x0 + 2 * u, cy - 6 * u);
-  ctx.lineTo(x0 - 8 * u, cy);
-  ctx.lineTo(x0 + 2 * u, cy + 6 * u);
-  ctx.closePath();
-  ctx.fill();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('EARL', x0 + 10 * u + tagW / 2, y0 + 0.5 * u);
+
+  setFont(ctx, 15 * u, '700');
   ctx.fillStyle = '#22303c';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  lines.forEach((l, i) => ctx.fillText(l, x0 + 12 * u, y0 + 8 * u + lh * (i + 0.5)));
+  lines.forEach((l, i) => ctx.fillText(l, x0 + 12 * u, y0 + 9 * u + lh * (i + 0.5)));
   ctx.globalAlpha = 1;
 }
 

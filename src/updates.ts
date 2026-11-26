@@ -13,6 +13,16 @@ export interface Update {
 
 export const UPDATES: Update[] = [
   {
+    id: '2026-11-25b',
+    title: 'Earl Pulled Up a Seat',
+    notes: [
+      'Earl now sits on the dock and fishes right next to you.',
+      "On the boat he's parked on his cooler. Obviously.",
+      'His trash talk pops up right over his head.',
+      "The orange bobber is his. Don't reel it in.",
+    ],
+  },
+  {
     id: '2026-11-25',
     title: 'Hook, Line & Sinker!',
     notes: [
